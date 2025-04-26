@@ -1,8 +1,8 @@
 // src/api/axiosConfig.js
 import axios from 'axios';
 
-// const baseURL = 'http://localhost:8000/api/'; // change if needed
-const baseURL = import.meta.env.VITE_API_BASE_URL;  // use environment variable
+const baseURL = 'http://localhost:8000/api/'; // change if needed
+// const baseURL = import.meta.env.VITE_API_BASE_URL;  // use environment variable
 
 const instance = axios.create({
   baseURL,
