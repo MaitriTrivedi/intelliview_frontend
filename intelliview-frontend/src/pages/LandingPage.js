@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '../components/ui/button';
 
-export default function HomePage() {
+export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col items-center justify-center text-center p-4">
       <h1 className="text-5xl font-bold text-blue-800 mb-4">
