@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import axios from '../api/axiosConfig';
+import axios from '../api/axiosConfig';  // Assuming axios is set up with base URL
 import { useNavigate } from 'react-router-dom';
 
 function Login() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
@@ -11,15 +11,17 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('token/', {
-        email,
+      const response = await axios.post('login/', {
+        username,
         password
       });
 
+      // Assuming the backend returns access and refresh tokens
       const { access, refresh } = response.data;
       localStorage.setItem('accessToken', access);
       localStorage.setItem('refreshToken', refresh);
-      navigate('/'); // Redirect to home
+
+      navigate('/'); // Redirect to home or dashboard
     } catch (error) {
       setErrorMsg('Invalid credentials. Please try again.');
     }
@@ -30,11 +32,11 @@ function Login() {
       <h2>Login</h2>
       <form onSubmit={handleLogin}>
         <div>
-          <label>Email:</label><br />
+          <label>Username:</label><br />
           <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             required
           />
         </div>

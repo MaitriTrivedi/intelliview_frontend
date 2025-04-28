@@ -4,6 +4,11 @@ import axios from 'axios';
 const baseURL = 'http://localhost:8000/api/'; // change if needed
 // const baseURL = import.meta.env.VITE_API_BASE_URL;  // use environment variable
 
+export default axios.create({
+  baseURL,
+  withCredentials: true,  // important if using Django session auth
+});
+
 const instance = axios.create({
   baseURL,
   headers: {
@@ -57,4 +62,4 @@ instance.interceptors.response.use(
   }
 );
 
-export default instance;
+// export default instance;
