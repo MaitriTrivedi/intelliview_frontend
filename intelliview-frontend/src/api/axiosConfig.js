@@ -19,9 +19,9 @@ const instance = axios.create({
 // Request Interceptor to attach token
 instance.interceptors.request.use(
   (config) => {
-    const accessToken = localStorage.getItem('accessToken');
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -43,15 +43,15 @@ instance.interceptors.response.use(
           refresh: refreshToken,
         });
 
-        const newAccessToken = res.data.access;
-        localStorage.setItem('accessToken', newAccessToken);
+        const newToken = res.data.access;
+        localStorage.setItem('token', newToken);
 
         // retry original request with new token
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return instance(originalRequest);
       } catch (refreshError) {
         console.log("Refresh token expired. Logging out...");
-        localStorage.removeItem('accessToken');
+        localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         window.location.href = '/login';
         return Promise.reject(refreshError);
@@ -62,4 +62,4 @@ instance.interceptors.response.use(
   }
 );
 
-// export default instance;
+export default instance;

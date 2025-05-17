@@ -4,6 +4,7 @@ import axios from '../api/axiosConfig';
 function ResumeUpload() {
   const [file, setFile] = useState(null);
   const [msg, setMsg] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -17,18 +18,23 @@ function ResumeUpload() {
       return;
     }
 
+    setIsUploading(true);
     const formData = new FormData();
-    formData.append('resume', file);
+    formData.append('file', file);
 
     try {
-      const response = await axios.post('resume/upload/', formData, {
+      const response = await axios.post('resumes/upload/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+      console.log('Upload successful:', response.data);
       setMsg('Resume uploaded successfully!');
+      setIsUploading(false);
     } catch (error) {
-      setMsg('Upload failed. Try again.');
+      console.error('Upload error:', error);
+      setMsg('Upload failed. Please try again.');
+      setIsUploading(false);
     }
   };
 
@@ -36,11 +42,18 @@ function ResumeUpload() {
     <div style={{ maxWidth: 400, margin: 'auto', padding: 20 }}>
       <h2>Upload Resume</h2>
       <form onSubmit={handleUpload}>
-        <input type="file" onChange={handleFileChange} accept=".pdf,.doc,.docx" />
+        <input 
+          type="file" 
+          onChange={handleFileChange} 
+          accept=".pdf,.doc,.docx,.txt" 
+          disabled={isUploading}
+        />
         <br /><br />
-        <button type="submit">Upload</button>
+        <button type="submit" disabled={isUploading || !file}>
+          {isUploading ? 'Uploading...' : 'Upload'}
+        </button>
       </form>
-      {msg && <p>{msg}</p>}
+      {msg && <p className={msg.includes('success') ? 'success-message' : 'error-message'}>{msg}</p>}
     </div>
   );
 }

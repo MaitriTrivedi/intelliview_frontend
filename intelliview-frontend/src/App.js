@@ -1,27 +1,54 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Home from './pages/Home';
 import Login from './pages/Login';
-import Signup from './pages/Signup';
-import Home from './pages/Home'; // Protected dashboard
-import ResumeUpload from './pages/ResumeUpload';
+import Register from './pages/Register';
 import Interview from './pages/Interview';
-import Result from './pages/Result';
-import ProtectedRoute from './components/ProtectedRoute';
-import LandingPage from './pages/LandingPage'; // 👈 Import landing page
+import Navbar from './components/Navbar';
+import './App.css';
+
+// Protected route component
+const PrivateRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+  
+  return user ? children : <Navigate to="/login" />;
+};
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LandingPage />} /> {/* 👈 Public home */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-
-        <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-        <Route path="/upload" element={<ProtectedRoute><ResumeUpload /></ProtectedRoute>} />
-        <Route path="/interview" element={<ProtectedRoute><Interview /></ProtectedRoute>} />
-        <Route path="/result" element={<ProtectedRoute><Result /></ProtectedRoute>} />
-      </Routes>
-    </BrowserRouter>
+    <Router>
+      <AuthProvider>
+        <div className="app">
+          <Navbar />
+          <main className="content">
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/" element={
+                <PrivateRoute>
+                  <Home />
+                </PrivateRoute>
+              } />
+              <Route path="/dashboard" element={
+                <PrivateRoute>
+                  <Home />
+                </PrivateRoute>
+              } />
+              <Route path="/interview" element={
+                <PrivateRoute>
+                  <Interview />
+                </PrivateRoute>
+              } />
+            </Routes>
+          </main>
+        </div>
+      </AuthProvider>
+    </Router>
   );
 }
 
