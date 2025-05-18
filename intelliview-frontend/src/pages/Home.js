@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api, { API_BASE_URL } from '../config/api';
 import { parseResume } from '../utils/resumeParser';
+import { SERVER_IP } from '../config/environment';
 import '../styles/Home.css';
 
 const Home = () => {
@@ -139,17 +140,17 @@ const Home = () => {
         return;
       }
 
-      // Get the file URL from upload details
-      const fileUrl = uploadDetails.file || uploadDetails.filename;
+      // Get the resume ID from upload details
+      const resumeId = uploadDetails.id;
       
-      if (!fileUrl) {
-        throw new Error('Resume file information not found');
+      if (!resumeId) {
+        throw new Error('Resume ID not found');
       }
 
-      console.log('Parsing resume file:', fileUrl);
+      console.log('Parsing resume with ID:', resumeId);
       
-      // Use our resume parser to extract data
-      const resumeData = await parseResume(fileUrl);
+      // Use our resume parser to extract data, passing the ID
+      const resumeData = await parseResume(resumeId);
       
       console.log('Resume data extracted:', resumeData);
       

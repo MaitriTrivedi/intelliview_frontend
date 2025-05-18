@@ -63,28 +63,28 @@ const Login = () => {
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label htmlFor="email">Email</label>
-            <input
+          <input
               type="email"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              required
+            required
               placeholder="Enter your email"
-            />
-          </div>
+          />
+        </div>
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
-            <input
-              type="password"
+          <input
+            type="password"
               id="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              required
+            required
               placeholder="Enter your password"
-            />
+          />
           </div>
 
           <button

@@ -1,8 +1,16 @@
 import axios from 'axios';
+import { getApiBaseUrl, ENABLE_API_LOGS, MAIN_API_BASE_URL } from './environment';
 
 // API Configuration
-export const API_BASE_URL = 'http://localhost:8000';
+export const API_BASE_URL = getApiBaseUrl();
 const API_PREFIX = '/api';  // Separate prefix for clarity
+
+// Log the current API configuration on startup
+if (ENABLE_API_LOGS) {
+  console.log('⚙️ API Configuration:');
+  console.log(`🔗 Base URL: ${MAIN_API_BASE_URL}`);
+  console.log(`🔍 API Prefix: ${API_PREFIX}`);
+}
 
 // Create axios instance with default config
 const api = axios.create({
@@ -25,7 +33,9 @@ api.interceptors.request.use(
         // Add API prefix to all requests if they don't already have it
         if (config.url && !config.url.startsWith(API_PREFIX) && !config.url.startsWith('http')) {
             config.url = buildApiUrl(config.url);
-            console.log('Adjusted request URL:', config.url);
+            if (ENABLE_API_LOGS) {
+                console.log('🔄 Adjusted request URL:', config.url);
+            }
         }
 
         // Add token to headers
@@ -41,7 +51,8 @@ api.interceptors.request.use(
 );
 
 // For debugging
-console.log('API Config - Base URL:', API_BASE_URL);
-console.log('API Config - Prefix:', API_PREFIX);
+if (ENABLE_API_LOGS) {
+  console.log('🚀 API Client initialized');
+}
 
 export default api;

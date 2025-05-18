@@ -1,152 +1,259 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import api from '../config/api';
+import interviewService, { INTERVIEW_PHASES } from '../services/interviewService';
+import { logNetworkInfo } from '../utils/networkUtils';
+import { checkAndFixInterviewState } from '../utils/resetInterviewStorage';
 import '../styles/Interview.css';
+
+// Helper function to completely reset all interview-related state
+const resetAllInterviewState = () => {
+  console.log('COMPLETE RESET: Clearing all interview-related localStorage items');
+  
+  // Clear interview progress
+  localStorage.removeItem('interviewProgress');
+  
+  // Clear any cached phase information
+  localStorage.removeItem('currentInterviewPhase');
+  
+  // Reset the interview service state
+  interviewService.clearProgress();
+  
+  // Force interviewService to have empty state
+  interviewService.interviewData = {
+    candidateName: '',
+    role: '',
+    techStack: [],
+    questions: [],
+    currentPhase: '',
+    resumeData: null,
+    scores: {}
+  };
+};
 
 const Interview = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
+  const [answering, setAnswering] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [questions, setQuestions] = useState([]);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState(null);
   const [interviewComplete, setInterviewComplete] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [resumeData, setResumeData] = useState(null);
-  const [resumeFile, setResumeFile] = useState(null);
+  const [interviewData, setInterviewData] = useState(null);
+  const [summaryReport, setSummaryReport] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState({ main: null, llm: null });
+  const [showResetMessage, setShowResetMessage] = useState(false);
+  const [networkStatus, setNetworkStatus] = useState({
+    checkingConnection: false,
+    loadingFirstQuestion: false
+  });
   
   useEffect(() => {
-    // Get resume data from location state (passed from Home)
-    const stateData = location.state;
+    // First check for any inconsistent state that needs fixing
+    const wasFixed = checkAndFixInterviewState();
+    if (wasFixed) {
+      console.log('Inconsistent interview state detected and fixed. Page will refresh soon.');
+      return; // Stop initialization since page will reload
+    }
     
-    if (stateData?.resumeData) {
-      setResumeData(stateData.resumeData);
-      setResumeFile(stateData.resumeFile);
-      console.log('Resume data loaded:', stateData.resumeData);
-    } else {
-      // Check if we have resume data in localStorage as fallback
-      const savedResumeAnalysis = localStorage.getItem('resumeAnalysis');
-      const savedResumeDetails = localStorage.getItem('resumeDetails');
+    // Check if we've just reset the interview
+    const hasReset = localStorage.getItem('interviewJustReset');
+    if (hasReset === 'true') {
+      setShowResetMessage(true);
+      // Clear the flag after displaying the message
+      localStorage.removeItem('interviewJustReset');
+      // Hide the message after 5 seconds
+      setTimeout(() => setShowResetMessage(false), 5000);
+    }
+    
+    // Check network connections
+    const checkConnections = async () => {
+      console.log("Checking network connections...");
+      setNetworkStatus(prev => ({ ...prev, checkingConnection: true }));
       
-      if (savedResumeAnalysis && savedResumeDetails) {
-        try {
-          setResumeData(JSON.parse(savedResumeAnalysis));
-          setResumeFile(JSON.parse(savedResumeDetails));
-          console.log('Resume data loaded from localStorage');
-        } catch (err) {
-          console.error('Error parsing saved resume data:', err);
-          // If we can't load resume data, redirect back to home
+      const networkInfo = await logNetworkInfo();
+      setConnectionStatus({
+        main: networkInfo.mainServerReachable,
+        llm: networkInfo.llmServiceReachable
+      });
+      
+      setNetworkStatus(prev => ({ ...prev, checkingConnection: false }));
+      
+      if (!networkInfo.llmServiceReachable) {
+        console.error("LLM service is not reachable. Will use fallback questions.");
+      }
+    };
+    
+    checkConnections();
+    
+    // Initialize or resume interview
+    const initializeInterview = async () => {
+      setLoading(true);
+      
+      // FIRST: Always perform a complete reset to ensure clean state
+      resetAllInterviewState();
+      console.log('After reset - interviewService data:', interviewService.interviewData);
+      
+      // Get resume data from location state (passed from Home)
+      let stateData = location.state;
+      
+      if (!stateData?.resumeData) {
+        // Check if we have resume data in localStorage as fallback
+        const savedResumeAnalysis = localStorage.getItem('resumeAnalysis');
+        const savedResumeDetails = localStorage.getItem('resumeDetails');
+        
+        if (savedResumeAnalysis && savedResumeDetails) {
+          try {
+            stateData = {
+              resumeData: JSON.parse(savedResumeAnalysis),
+              resumeFile: JSON.parse(savedResumeDetails)
+            };
+            console.log('Resume data loaded from localStorage');
+          } catch (err) {
+            console.error('Error parsing saved resume data:', err);
+            // If we can't load resume data, redirect back to home
+            navigate('/');
+            return;
+          }
+        } else {
+          // No resume data found, redirect back to home
+          console.error('No resume data found. Please upload your resume first.');
           navigate('/');
           return;
         }
-      } else {
-        // No resume data found, redirect back to home
-        console.error('No resume data found. Please upload your resume first.');
-        navigate('/');
-        return;
       }
-    }
-    
-    // Fetch interview questions when component mounts and resume data is available
-    startInterview();
-  }, []);
-
-  const startInterview = async () => {
-    setLoading(true);
-    try {
-      // Send resume data to backend to generate personalized questions
-      const response = await api.post('/api/interview/start/', {
-        resume_data: resumeData,
-        resume_file: resumeFile
+      
+      // Initialize the interview service with resume data
+      const newInterviewData = interviewService.initInterview({
+        candidateName: stateData.resumeData.personal_info?.name || 'Candidate',
+        role: 'Software Developer', // You could set this dynamically based on resume or user input
+        techStack: extractTechStackFromResume(stateData.resumeData),
+        resumeData: stateData.resumeData
       });
       
-      setQuestions(response.data.questions);
-      setCurrentQuestion(response.data.questions[0]);
-      setCurrentQuestionIndex(0);
-    } catch (error) {
-      console.error('Error starting interview:', error);
+      // FORCE the current phase to be empty initially
+      interviewService.interviewData.currentPhase = '';
+      interviewService.interviewData.questions = [];
+
+      setInterviewData({
+        ...newInterviewData,
+        currentPhase: '',
+        questions: []
+      });
+
+      try {
+        // Force the first question to be the introduction question by using moveToNextPhase
+        // which will select the introduction phase since currentPhase is empty
+        console.log('Generating first question (should be introduction)...');
+        
+        setNetworkStatus(prev => ({ ...prev, loadingFirstQuestion: true }));
+        const firstQuestion = await interviewService.moveToNextPhase();
+        setNetworkStatus(prev => ({ ...prev, loadingFirstQuestion: false }));
+        
+        console.log('Got first question:', firstQuestion);
+        
+        if (firstQuestion) {
+          setCurrentQuestion(firstQuestion);
+          
+          // Update the interview data in state
+          const updatedInterviewData = interviewService.getInterviewData();
+          setInterviewData(updatedInterviewData);
+          
+          console.log('Updated interview data:', updatedInterviewData);
+          console.log('Current phase after initialization:', updatedInterviewData.currentPhase);
+          
+          // Verify the phase is set to introduction
+          if (updatedInterviewData.currentPhase !== INTERVIEW_PHASES.INTRODUCTION) {
+            console.error('Phase not set correctly, forcing to INTRODUCTION');
+            interviewService.interviewData.currentPhase = INTERVIEW_PHASES.INTRODUCTION;
+            setInterviewData({
+              ...updatedInterviewData,
+              currentPhase: INTERVIEW_PHASES.INTRODUCTION
+            });
+          }
+          
+          // Save progress AFTER everything is set up correctly
+          interviewService.saveProgress();
+        } else {
+          console.error('Failed to get first question');
+        }
+      } catch (error) {
+        console.error('Error initializing interview:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    initializeInterview();
+  }, []);
+  
+  // Helper function to extract tech stack from resume
+  const extractTechStackFromResume = (resumeData) => {
+    const techStack = [];
+    
+    // Extract from skills
+    if (resumeData.skills && Array.isArray(resumeData.skills)) {
+      techStack.push(...resumeData.skills.slice(0, 5));
+    }
+    
+    // Extract from projects
+    if (resumeData.projects && Array.isArray(resumeData.projects)) {
+      resumeData.projects.forEach(project => {
+        if (project.technologies) {
+          const techs = Array.isArray(project.technologies) 
+            ? project.technologies 
+            : project.technologies.split(',').map(t => t.trim());
+          
+          techs.forEach(tech => {
+            if (!techStack.includes(tech)) {
+              techStack.push(tech);
+            }
+          });
+        }
+      });
+    }
+    
+    // If we still don't have enough technologies, add some defaults
+    if (techStack.length < 3) {
+      const defaults = ['JavaScript', 'React', 'Python', 'Java', 'Node.js'];
+      defaults.forEach(tech => {
+        if (!techStack.includes(tech)) {
+          techStack.push(tech);
+        }
+      });
+    }
+    
+    return techStack.slice(0, 8); // Limit to 8 technologies
+  };
+
+  const startNextPhase = async () => {
+    setLoading(true);
+    
+    try {
+      console.log('Starting next phase...');
+      const question = await interviewService.moveToNextPhase();
       
-      // Fallback to static questions if API fails
-      const mockQuestions = generateMockQuestions(resumeData);
-      setQuestions(mockQuestions);
-      setCurrentQuestion(mockQuestions[0]);
-      setCurrentQuestionIndex(0);
+      if (question) {
+        console.log('Got new question:', question);
+        setCurrentQuestion(question);
+        
+        // Save progress
+        interviewService.saveProgress();
+        
+        // Update interview data
+        setInterviewData(interviewService.getInterviewData());
+      } else if (interviewService.getInterviewData().currentPhase === INTERVIEW_PHASES.SUMMARY) {
+        console.log('Reached summary phase');
+        // We've reached the summary phase
+        setSummaryReport(interviewService.getInterviewData().summaryReport);
+        setInterviewComplete(true);
+      }
+    } catch (error) {
+      console.error('Error starting next phase:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Generate mock questions based on resume data for fallback
-  const generateMockQuestions = (resumeData) => {
-    const mockQuestions = [];
-    
-    // Add personal introduction question
-    mockQuestions.push({
-      id: 'intro-1',
-      text: 'Tell me about yourself and your background.',
-      type: 'personal'
-    });
-    
-    // Add education questions if available
-    if (resumeData?.education?.length > 0) {
-      const education = resumeData.education[0];
-      mockQuestions.push({
-        id: 'edu-1',
-        text: `I see you studied ${education.degree} at ${education.institution}. What key skills did you gain from this education?`,
-        type: 'education'
-      });
-    }
-    
-    // Add experience questions if available
-    if (resumeData?.experience?.length > 0) {
-      const experience = resumeData.experience[0];
-      mockQuestions.push({
-        id: 'exp-1',
-        text: `Tell me about your role as ${experience.position} at ${experience.company}. What were your main responsibilities?`,
-        type: 'experience'
-      });
-      
-      mockQuestions.push({
-        id: 'exp-2',
-        text: 'Describe a challenging situation you faced in your previous role and how you overcame it.',
-        type: 'experience'
-      });
-    }
-    
-    // Add project questions if available
-    if (resumeData?.projects?.length > 0) {
-      const project = resumeData.projects[0];
-      mockQuestions.push({
-        id: 'proj-1',
-        text: `I'm interested in your project "${project.name}". Can you explain your role and the technologies you used?`,
-        type: 'project'
-      });
-    }
-    
-    // Add skills questions if available
-    if (resumeData?.skills?.length > 0) {
-      mockQuestions.push({
-        id: 'skill-1',
-        text: `I see you have experience with ${resumeData.skills.slice(0, 3).join(', ')}. Can you give an example of how you've applied these skills?`,
-        type: 'skills'
-      });
-    }
-    
-    // Add general questions
-    mockQuestions.push({
-      id: 'gen-1',
-      text: 'Where do you see yourself in five years?',
-      type: 'general'
-    });
-    
-    mockQuestions.push({
-      id: 'gen-2',
-      text: 'What are your strengths and weaknesses?',
-      type: 'general'
-    });
-    
-    return mockQuestions;
   };
 
   const handleAnswerChange = (e) => {
@@ -154,48 +261,73 @@ const Interview = () => {
   };
 
   const submitAnswer = async () => {
-    if (!answer.trim()) return;
+    if (!answer.trim() || answering) return;
     
-    setLoading(true);
+    setAnswering(true);
     try {
-      const response = await api.post('/api/interview/answer/', {
-        question_id: currentQuestion.id,
-        question_text: currentQuestion.text,
-        answer: answer,
-        resume_data: resumeData
-      });
+      // Save the answer
+      currentQuestion.answer = answer;
       
-      setFeedback(response.data.feedback);
+      // Update in interview service
+      const currentQuestions = interviewService.getInterviewData().questions;
+      currentQuestions[currentQuestions.length - 1].answer = answer;
+      
+      // Save progress
+      interviewService.saveProgress();
+      
+      // Move to evaluation step
+      setEvaluating(true);
+      setAnswering(false);
+      
+      // Automatically call evaluateAnswer after submitting
+      setTimeout(() => {
+        evaluateAnswer();
+      }, 500); // Small delay for better user experience
     } catch (error) {
-      console.error('Error submitting answer:', error);
+      console.error('Error saving answer:', error);
+      setAnswering(false);
+    }
+  };
+
+  const evaluateAnswer = async () => {
+    if (evaluating) return;
+    
+    setEvaluating(true);
+    try {
+      // Evaluate the answer
+      const evaluation = await interviewService.evaluateAnswer(
+        currentQuestion.type,
+        currentQuestion.text,
+        answer
+      );
       
-      // Fallback feedback if API fails
-      setFeedback({
-        text: "Your answer covered some key points, but could be more specific with examples. Consider structuring your response with a clearer introduction and conclusion.",
-        clarity_score: 7,
-        relevance_score: 8,
-        depth_score: 6
-      });
-    } finally {
-      setLoading(false);
+      // Set feedback
+      setFeedback(evaluation);
+      
+      // Save progress
+      interviewService.saveProgress();
+      
+      // Update interview data
+      setInterviewData(interviewService.getInterviewData());
+      
+      setEvaluating(false);
+    } catch (error) {
+      console.error('Error evaluating answer:', error);
+      setEvaluating(false);
     }
   };
 
   const nextQuestion = () => {
-    const nextIndex = currentQuestionIndex + 1;
-    if (nextIndex < questions.length) {
-      setCurrentQuestionIndex(nextIndex);
-      setCurrentQuestion(questions[nextIndex]);
-      setAnswer('');
-      setFeedback(null);
-    } else {
-      // Interview complete
-      setInterviewComplete(true);
-    }
+    setAnswer('');
+    setFeedback(null);
+    setEvaluating(false);
+    startNextPhase();
   };
 
   const renderResumeDetails = () => {
-    if (!resumeData) return null;
+    if (!interviewData || !interviewData.resumeData) return null;
+    
+    const resumeData = interviewData.resumeData;
     
     return (
       <div className="resume-preview">
@@ -206,7 +338,7 @@ const Interview = () => {
           )}
           
           {resumeData.education?.length > 0 && (
-            <p><strong>Education:</strong> {resumeData.education[0].degree}, {resumeData.education[0].institution}</p>
+            <p><strong>Education:</strong> {resumeData.education[0].institution}</p>
           )}
           
           {resumeData.experience?.length > 0 && (
@@ -216,6 +348,250 @@ const Interview = () => {
           {resumeData.skills?.length > 0 && (
             <p><strong>Skills:</strong> {resumeData.skills.slice(0, 5).join(', ')}</p>
           )}
+        </div>
+      </div>
+    );
+  };
+
+  // Add a reset message component
+  const renderResetMessage = () => {
+    if (!showResetMessage) return null;
+    
+    return (
+      <div className="reset-message">
+        <p>✅ Interview has been reset! You'll now start at Question 1 (Introduction).</p>
+      </div>
+    );
+  };
+
+  const renderIntroduction = () => {
+    return (
+      <div className="interview-intro">
+        <h1>AI-Powered Interview Practice</h1>
+        {showResetMessage && renderResetMessage()}
+        
+        {/* Network Status Indicators */}
+        {networkStatus.checkingConnection && (
+          <div className="network-status-message">
+            <div className="loading-spinner small"></div>
+            <p>Checking LLM service connection...</p>
+          </div>
+        )}
+        
+        {networkStatus.loadingFirstQuestion && (
+          <div className="network-status-message">
+            <div className="loading-spinner small"></div>
+            <p>Loading introduction question...</p>
+          </div>
+        )}
+        
+        {!connectionStatus.llm && (
+          <div className="warning-message">
+            <p>⚠️ LLM service is disconnected. Using fallback questions and responses.</p>
+          </div>
+        )}
+        
+        <p>
+          Welcome to your personalized interview practice session. 
+          You'll be asked a series of questions based on your resume and industry standards.
+        </p>
+        <p>
+          Your answers will be evaluated in real-time to provide feedback and help you improve.
+        </p>
+        
+        {interviewData && (
+          <div className="interview-settings">
+            <p><strong>Candidate:</strong> {interviewData.candidateName}</p>
+            <p><strong>Role:</strong> {interviewData.role}</p>
+            <p><strong>Technology Stack:</strong> {interviewData.techStack.join(', ')}</p>
+          </div>
+        )}
+        
+        <div className="interview-actions">
+          <button 
+            className="start-button" 
+            onClick={() => {
+              const questions = interviewService.getInterviewData().questions;
+              if (questions.length > 0) {
+                setCurrentQuestion(questions[0]);
+              }
+            }}
+            disabled={networkStatus.checkingConnection || networkStatus.loadingFirstQuestion}
+          >
+            {networkStatus.checkingConnection || networkStatus.loadingFirstQuestion ? 
+              'Preparing Interview...' : 'Start Interview'}
+          </button>
+          
+          <button 
+            className="reset-button"
+            onClick={() => {
+              if (window.confirm('Are you sure you want to reset the interview? This will start you over at Question 1.')) {
+                resetAllInterviewState();
+                // Set a flag for the next page load to show reset message
+                localStorage.setItem('interviewJustReset', 'true');
+                window.location.reload(); // Force a complete page refresh
+              }
+            }}
+            disabled={networkStatus.checkingConnection || networkStatus.loadingFirstQuestion}
+          >
+            Reset Interview
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFeedback = () => {
+    if (!feedback) return null;
+    
+    return (
+      <div className="feedback-container">
+        <h3>Feedback on Your Answer</h3>
+        <div className="feedback-score">
+          <div className="score-circle">
+            <span>{feedback.score}</span>
+            <small>/10</small>
+          </div>
+        </div>
+        <div className="feedback-text">
+          <p>{feedback.feedback}</p>
+          {feedback.areas_to_probe && (
+            <div className="probe-areas">
+              <h4>Areas to Improve:</h4>
+              <p>{feedback.areas_to_probe}</p>
+            </div>
+          )}
+        </div>
+        <button className="next-button" onClick={nextQuestion}>
+          Next Question
+        </button>
+      </div>
+    );
+  };
+
+  const renderSummary = () => {
+    if (!summaryReport) return null;
+    
+    const { assessment, percentage, total_score, max_possible } = summaryReport;
+    
+    return (
+      <div className="summary-container">
+        <h1>Interview Results</h1>
+        
+        <div className="score-overview">
+          <div className="final-score">
+            <div className="score-circle large">
+              <span>{Math.round(percentage)}%</span>
+            </div>
+            <p>Score: {total_score}/{max_possible}</p>
+          </div>
+          
+          <div className="recommendation">
+            <h3>Recommendation:</h3>
+            <p className={`recommendation-${assessment.recommendation.toLowerCase().replace(/\s+/g, '-')}`}>
+              {assessment.recommendation}
+            </p>
+          </div>
+        </div>
+        
+        <div className="assessment-details">
+          <h3>Overall Impression:</h3>
+          <p>{assessment.overall_impression}</p>
+          
+          <h3>Technical Strengths:</h3>
+          <ul>
+            {assessment.technical_strengths.map((strength, index) => (
+              <li key={index}>{strength}</li>
+            ))}
+          </ul>
+          
+          <h3>Areas for Improvement:</h3>
+          <ul>
+            {assessment.areas_for_improvement.map((area, index) => (
+              <li key={index}>{area}</li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="summary-actions">
+          <button 
+            className="home-button"
+            onClick={() => navigate('/dashboard')}
+          >
+            Back to Dashboard
+          </button>
+          <button 
+            className="restart-button"
+            onClick={() => {
+              interviewService.clearProgress();
+              navigate('/');
+            }}
+          >
+            Start New Interview
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const getQuestionTypeBadgeText = (type) => {
+    switch(type) {
+      case INTERVIEW_PHASES.INTRODUCTION: return 'INTRODUCTION';
+      case INTERVIEW_PHASES.PROJECT: return 'PROJECT';
+      case INTERVIEW_PHASES.TECHNICAL: return 'TECHNICAL';
+      case INTERVIEW_PHASES.CS_FUNDAMENTALS: return 'CS FUNDAMENTALS';
+      case INTERVIEW_PHASES.DSA: return 'DATA STRUCTURES & ALGORITHMS';
+      case INTERVIEW_PHASES.FOLLOWUP: return 'FOLLOW-UP';
+      case INTERVIEW_PHASES.SUMMARY: return 'SUMMARY';
+      default: return type?.toUpperCase() || '';
+    }
+  };
+
+  // Add a debug message component
+  const renderDebugInfo = () => {
+    // Only render in development or when a special debug flag is enabled
+    const isDebugMode = process.env.NODE_ENV === 'development' || localStorage.getItem('enableDebug') === 'true';
+    if (!isDebugMode) return null;
+    
+    const toggleDebugMode = () => {
+      const current = localStorage.getItem('enableDebug');
+      if (current === 'true') {
+        localStorage.removeItem('enableDebug');
+        alert('Debug mode disabled. Refresh to see changes.');
+      } else {
+        localStorage.setItem('enableDebug', 'true');
+        alert('Debug mode enabled.');
+      }
+    };
+    
+    return (
+      <div className="debug-info">
+        <h4>Debug Information</h4>
+        <p>Current Phase: {interviewData?.currentPhase || 'none'}</p>
+        <p>Question Count: {interviewData?.questions?.length || 0}</p>
+        <p>Current Question Type: {currentQuestion?.type || 'none'}</p>
+        <p>LLM Service: {connectionStatus.llm ? '✅ Connected' : '❌ Disconnected'}</p>
+        <div className="debug-buttons">
+          <button 
+            onClick={() => {
+              console.log('Debug - Interview Data:', interviewService.getInterviewData());
+              console.log('Debug - Current Question:', currentQuestion);
+              alert('Debug info logged to console');
+            }}
+          >
+            Log Debug Info
+          </button>
+          <button 
+            onClick={() => {
+              resetAllInterviewState();
+              window.location.reload();
+            }}
+          >
+            Reset & Reload
+          </button>
+          <button onClick={toggleDebugMode}>
+            {localStorage.getItem('enableDebug') === 'true' ? 'Disable Debug Mode' : 'Enable Debug Mode'}
+          </button>
         </div>
       </div>
     );
@@ -235,105 +611,94 @@ const Interview = () => {
   if (interviewComplete) {
     return (
       <div className="interview-container">
-        <div className="interview-complete">
-          <h1>Interview Complete!</h1>
-          <p>Thank you for completing your practice interview.</p>
-          <button 
-            className="home-button"
-            onClick={() => navigate('/dashboard')}
-          >
-            View Results
-          </button>
-          <button 
-            className="restart-button"
-            onClick={() => {
-              setInterviewComplete(false);
-              startInterview();
-            }}
-          >
-            Start New Interview
-          </button>
-        </div>
+        {renderSummary()}
+      </div>
+    );
+  }
+
+  if (!currentQuestion && interviewData) {
+    return (
+      <div className="interview-container">
+        {renderIntroduction()}
       </div>
     );
   }
 
   return (
     <div className="interview-container">
-      <div className="interview-header">
-        <h1>Interview Practice</h1>
-        <div className="progress-container">
-          <div className="progress-text">
-            Question {currentQuestionIndex + 1} of {questions.length}
-          </div>
-          <div className="progress-bar">
-            <div 
-              className="progress-fill" 
-              style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
-            ></div>
-          </div>
+      {showResetMessage && renderResetMessage()}
+      
+      {loading ? (
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Preparing your interview...</p>
         </div>
-        
-        {renderResumeDetails()}
-      </div>
-
-      {currentQuestion && (
+      ) : interviewComplete ? (
+        renderSummary()
+      ) : !currentQuestion ? (
+        renderIntroduction()
+      ) : (
         <div className="question-container">
-          <h2 className="question-text">{currentQuestion.text}</h2>
+          {renderResumeDetails()}
           
-          {!feedback ? (
+          <div className="question-header">
+            <span className="question-badge">{getQuestionTypeBadgeText(currentQuestion.type)}</span>
+            <span className="question-number">
+              Question {
+                // Ensure we always show the first question for the introduction phase
+                currentQuestion.type === INTERVIEW_PHASES.INTRODUCTION ? 1 : 
+                currentQuestion.type === INTERVIEW_PHASES.PROJECT ? 2 :
+                currentQuestion.type === INTERVIEW_PHASES.TECHNICAL ? 3 :
+                currentQuestion.type === INTERVIEW_PHASES.CS_FUNDAMENTALS ? 4 :
+                currentQuestion.type === INTERVIEW_PHASES.DSA ? 5 :
+                currentQuestion.type === INTERVIEW_PHASES.FOLLOWUP ? 6 : 7
+              } of 7
+            </span>
+          </div>
+          
+          <div className="question">
+            <h2>{currentQuestion.text}</h2>
+          </div>
+          
+          {feedback ? (
+            renderFeedback()
+          ) : (
             <div className="answer-container">
               <textarea
+                className="answer-input"
+                placeholder="Type your answer here..."
                 value={answer}
                 onChange={handleAnswerChange}
-                placeholder="Type your answer here..."
-                disabled={loading}
-                rows={6}
-                className="answer-input"
-              />
+                disabled={answering}
+              ></textarea>
+              
               <button 
-                onClick={submitAnswer}
-                disabled={loading || !answer.trim()}
                 className="submit-button"
+                onClick={submitAnswer}
+                disabled={!answer.trim() || answering}
               >
-                {loading ? 'Submitting...' : 'Submit Answer'}
+                {answering ? 'Submitting...' : 'Submit'}
               </button>
+              
+              {evaluating && (
+                <div className="evaluating-indicator">
+                  <div className="loading-spinner small"></div>
+                  <p>Evaluating your answer...</p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="feedback-container">
-              <h3>Your Answer:</h3>
-              <p className="user-answer">{answer}</p>
-              
-              <h3>Feedback:</h3>
-              <div className="feedback-content">
-                {feedback.text}
-              </div>
-              
-              <div className="score-container">
-                <div className="score-card">
-                  <span className="score-label">Clarity</span>
-                  <span className="score-value">{feedback.clarity_score}/10</span>
-                </div>
-                <div className="score-card">
-                  <span className="score-label">Relevance</span>
-                  <span className="score-value">{feedback.relevance_score}/10</span>
-                </div>
-                <div className="score-card">
-                  <span className="score-label">Depth</span>
-                  <span className="score-value">{feedback.depth_score}/10</span>
-                </div>
-              </div>
-              
-              <button 
-                onClick={nextQuestion}
-                className="next-button"
-              >
-                Next Question
-              </button>
+          )}
+          
+          {!connectionStatus.llm && (
+            <div className="warning-message">
+              <p>⚠️ LLM service is disconnected. Using fallback questions and responses.</p>
             </div>
           )}
         </div>
       )}
+      
+      {/* Render debug info */}
+      {renderDebugInfo()}
     </div>
   );
 };

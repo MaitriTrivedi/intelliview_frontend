@@ -6,13 +6,13 @@ const AuthContext = createContext({});
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
     const isRefreshing = useRef(false);
     const userChecked = useRef(false);  // Track if we've already checked user status
 
     // For debugging
-    useEffect(() => {
+  useEffect(() => {
         console.log("AuthContext initialized with API_BASE_URL:", API_BASE_URL);
     }, []);
 
@@ -37,21 +37,21 @@ export const AuthProvider = ({ children }) => {
                 const response = await api.get('/api/auth/user/');
                 console.log('User data response:', response.data);
                 setUser(response.data);
-            } else {
+        } else {
                 console.log('No token found in localStorage');
-                setUser(null);
-            }
+          setUser(null);
+        }
             userChecked.current = true;  // Mark that we've checked the user
-        } catch (error) {
+      } catch (error) {
             console.error('Error checking authentication status:', error.response?.data || error.message);
             console.error('Error details:', error);
             localStorage.removeItem('token'); // Clear invalid token
             setUser(null);
             userChecked.current = true;  // Mark that we've checked the user even on error
-        } finally {
+      } finally {
             isRefreshing.current = false;
-            setLoading(false);
-        }
+        setLoading(false);
+      }
     }, [loading]); // Only recreate if loading changes
 
     // Only run on initial mount - empty dependency array
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
         // Clean up function
         return () => {
             userChecked.current = false;  // Reset for next mount
-        };
+    };
     }, []); // Empty dependency array
 
     // Force refresh user data - with debounce protection
@@ -68,19 +68,19 @@ export const AuthProvider = ({ children }) => {
         if (isRefreshing.current) {
             console.log('Already refreshing user, skipping...');
             return user;
-        }
-        
+      }
+
         setLoading(true);
         userChecked.current = false; // Force a refresh
         await checkUser();
         return user;
-    };
+  };
 
     const signUp = async (data) => {
-        try {
+    try {
             const fullUrl = `${API_BASE_URL}/api/auth/register/`;
             console.log('Registering user at:', fullUrl);
-            
+      
             const response = await api.post('/api/auth/register/', {
                 username: data.email,
                 email: data.email,
@@ -94,14 +94,14 @@ export const AuthProvider = ({ children }) => {
             setUser(user);
             userChecked.current = true;  // Mark that user is verified
             return { user };
-        } catch (error) {
-            console.error('Signup error:', error);
-            throw error;
-        }
-    };
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    }
+  };
 
-    const signIn = async (email, password) => {
-        try {
+  const signIn = async (email, password) => {
+    try {
             const fullUrl = `${API_BASE_URL}/api/auth/login/`;
             console.log('Logging in at:', fullUrl);
             
@@ -115,20 +115,20 @@ export const AuthProvider = ({ children }) => {
             setUser(user);
             userChecked.current = true;  // Mark that user is verified
             return { user };
-        } catch (error) {
+    } catch (error) {
             console.error('Login error:', error);
-            throw error;
-        }
-    };
+      throw error;
+    }
+  };
 
-    const signOut = async () => {
-        try {
+  const signOut = async () => {
+    try {
             await api.post('/api/auth/logout/');
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
             localStorage.removeItem('token');
-            setUser(null);
+      setUser(null);
             userChecked.current = false;  // Reset for next login
         }
     };
@@ -149,14 +149,14 @@ export const AuthProvider = ({ children }) => {
     return (
         <AuthContext.Provider value={{
             user,
-            signUp,
-            signIn,
-            signOut,
+    signUp,
+    signIn,
+    signOut,
             loading,
             refreshUser,
             checkAuthStatus
         }}>
-            {!loading && children}
-        </AuthContext.Provider>
-    );
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 }; 

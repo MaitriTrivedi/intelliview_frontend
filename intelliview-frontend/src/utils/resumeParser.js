@@ -74,14 +74,27 @@ const extractPersonalInfo = (text) => {
 // Main function to extract resume data
 export const parseResume = async (fileUrl) => {
   try {
-    console.log('Starting resume parsing for file:', fileUrl);
+    console.log('Requesting resume parsing for file:', fileUrl);
     
     // Request the backend to process the resume
     const response = await api.post('/api/resumes/parse/', {
-      resume_url: fileUrl
+      resume_id: fileUrl
     });
     
-    return response.data;
+    console.log('Backend resume parse response:', response.data);
+    
+    // Extract the parsed resume data
+    const resumeData = {
+      personal_info: {
+        name: response.data.user?.first_name || "Resume Owner",
+        email: response.data.user?.email || "user@example.com",
+      },
+      education: response.data.education || [],
+      experience: response.data.experience || [],
+      projects: response.data.projects || []
+    };
+    
+    return resumeData;
   } catch (error) {
     console.error('Error parsing resume:', error);
     // Fallback to mock data if the backend fails
@@ -119,23 +132,8 @@ export const parseResume = async (fileUrl) => {
   }
 };
 
-// Function to extract text from PDF in browser
+// Function to extract text from PDF in browser - no longer needed as backend handles this
 export const extractTextFromPdf = async (file) => {
-  // In a real implementation, you'd use a PDF.js or similar library
-  // This is a placeholder that would communicate with the backend
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const response = await api.post('/api/resumes/extract-text/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    
-    return response.data.text;
-  } catch (error) {
-    console.error('Error extracting text from PDF:', error);
-    return "Failed to extract text from PDF";
-  }
+  console.log('PDF extraction now happens on the backend');
+  return "PDF extraction now happens on the backend";
 }; 
