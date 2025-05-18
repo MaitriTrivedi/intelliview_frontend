@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import interviewService, { INTERVIEW_PHASES } from '../services/interviewService';
 import { logNetworkInfo } from '../utils/networkUtils';
 import { checkAndFixInterviewState } from '../utils/resetInterviewStorage';
+import { MAIN_API_BASE_URL } from '../config/environment';
+import useSaveInterviewHistory from '../hooks/useSaveInterviewHistory';
+import saveQuestionAnswer from '../hooks/useSaveQuestionAnswer';
 import '../styles/Interview.css';
 
 // Helper function to completely reset all interview-related state
@@ -48,6 +51,9 @@ const Interview = () => {
     checkingConnection: false,
     loadingFirstQuestion: false
   });
+  
+  // Move the hook call to the component level
+  useSaveInterviewHistory(interviewData?.questions, interviewComplete);
   
   useEffect(() => {
     // First check for any inconsistent state that needs fixing
@@ -310,6 +316,20 @@ const Interview = () => {
       // Update interview data
       setInterviewData(interviewService.getInterviewData());
       
+      // Save the question-answer data to the backend
+      const sessionId = localStorage.getItem('interviewSessionId');
+      const result = await saveQuestionAnswer(
+        currentQuestion.text, 
+        answer, 
+        evaluation, 
+        sessionId
+      );
+      
+      // If we have a session ID, store it for future saves
+      if (result.success && result.sessionId) {
+        localStorage.setItem('interviewSessionId', result.sessionId);
+      }
+      
       setEvaluating(false);
     } catch (error) {
       console.error('Error evaluating answer:', error);
@@ -455,9 +475,46 @@ const Interview = () => {
         </div>
         <div className="feedback-text">
           <p>{feedback.feedback}</p>
+          
+          {/* Display strengths */}
+          {feedback.strengths && feedback.strengths.length > 0 && (
+            <div className="feedback-strengths">
+              <h4>Strengths:</h4>
+              <ul>
+                {feedback.strengths.map((strength, index) => (
+                  <li key={`strength-${index}`}>{strength}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {/* Display weaknesses */}
+          {feedback.weaknesses && feedback.weaknesses.length > 0 && (
+            <div className="feedback-weaknesses">
+              <h4>Areas to Improve:</h4>
+              <ul>
+                {feedback.weaknesses.map((weakness, index) => (
+                  <li key={`weakness-${index}`}>{weakness}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {/* Display suggestions */}
+          {feedback.suggestions && feedback.suggestions.length > 0 && (
+            <div className="feedback-suggestions">
+              <h4>Suggestions:</h4>
+              <ul>
+                {feedback.suggestions.map((suggestion, index) => (
+                  <li key={`suggestion-${index}`}>{suggestion}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
           {feedback.areas_to_probe && (
             <div className="probe-areas">
-              <h4>Areas to Improve:</h4>
+              <h4>Follow-up Questions to Consider:</h4>
               <p>{feedback.areas_to_probe}</p>
             </div>
           )}
@@ -472,7 +529,17 @@ const Interview = () => {
   const renderSummary = () => {
     if (!summaryReport) return null;
     
-    const { assessment, percentage, total_score, max_possible } = summaryReport;
+    // Use optional chaining and provide fallback values for potentially undefined properties
+    const percentage = summaryReport.percentage || 0;
+    const total_score = summaryReport.total_score || 0;
+    const max_possible = summaryReport.max_possible || 10;
+    const assessment = summaryReport.assessment || {};
+    
+    // Create safe access to potentially undefined properties
+    const recommendation = assessment.recommendation || 'No recommendation available';
+    const overall_impression = assessment.overall_impression || 'No overall impression available';
+    const technical_strengths = assessment.technical_strengths || [];
+    const areas_for_improvement = assessment.areas_for_improvement || [];
     
     return (
       <div className="summary-container">
@@ -488,29 +555,100 @@ const Interview = () => {
           
           <div className="recommendation">
             <h3>Recommendation:</h3>
-            <p className={`recommendation-${assessment.recommendation.toLowerCase().replace(/\s+/g, '-')}`}>
-              {assessment.recommendation}
+            <p className={`recommendation-${recommendation.toLowerCase().replace(/\s+/g, '-')}`}>
+              {recommendation}
             </p>
           </div>
         </div>
         
         <div className="assessment-details">
           <h3>Overall Impression:</h3>
-          <p>{assessment.overall_impression}</p>
+          <p>{overall_impression}</p>
           
           <h3>Technical Strengths:</h3>
-          <ul>
-            {assessment.technical_strengths.map((strength, index) => (
-              <li key={index}>{strength}</li>
-            ))}
-          </ul>
+          {technical_strengths.length > 0 ? (
+            <ul>
+              {technical_strengths.map((strength, index) => (
+                <li key={index}>{strength}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No specific strengths identified.</p>
+          )}
           
           <h3>Areas for Improvement:</h3>
-          <ul>
-            {assessment.areas_for_improvement.map((area, index) => (
-              <li key={index}>{area}</li>
-            ))}
-          </ul>
+          {areas_for_improvement.length > 0 ? (
+            <ul>
+              {areas_for_improvement.map((area, index) => (
+                <li key={index}>{area}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No specific areas for improvement identified.</p>
+          )}
+        </div>
+
+        {/* Detailed question review section */}
+        <div className="detailed-review">
+          <h2>Detailed Question Review</h2>
+          
+          {interviewData && interviewData.questions && interviewData.questions.length > 0 ? (
+            interviewData.questions.map((question, index) => (
+              <div className="question-review-item" key={index}>
+                <div className="question-review-header">
+                  <span className="question-review-badge">{getQuestionTypeBadgeText(question.type)}</span>
+                  <span className="question-review-score">
+                    Score: <strong>{question.evaluation?.score || 'N/A'}</strong>/10
+                  </span>
+                </div>
+                
+                <div className="question-review-content">
+                  <h3>Question {index + 1}:</h3>
+                  <p className="question-review-text">{question.text}</p>
+                  
+                  <h4>Your Answer:</h4>
+                  <div className="answer-review-text">
+                    <p>{question.answer || 'No answer provided'}</p>
+                  </div>
+                  
+                  {question.evaluation ? (
+                    <div className="feedback-review">
+                      <h4>Feedback:</h4>
+                      <p>{question.evaluation.feedback || 'No feedback available'}</p>
+                      
+                      {question.evaluation.strengths && question.evaluation.strengths.length > 0 ? (
+                        <div className="strengths-review">
+                          <h5>Strengths:</h5>
+                          <ul>
+                            {question.evaluation.strengths.map((strength, idx) => (
+                              <li key={idx}>{strength}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      
+                      {question.evaluation.weaknesses && question.evaluation.weaknesses.length > 0 ? (
+                        <div className="weaknesses-review">
+                          <h5>Areas to Improve:</h5>
+                          <ul>
+                            {question.evaluation.weaknesses.map((weakness, idx) => (
+                              <li key={idx}>{weakness}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="feedback-review">
+                      <p>No evaluation available for this question.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="no-questions-message">No questions available for review.</p>
+          )}
         </div>
         
         <div className="summary-actions">

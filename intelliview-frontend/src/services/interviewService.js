@@ -508,20 +508,53 @@ class InterviewService {
    */
   async generateSummaryReport() {
     try {
-      const response = await callLlmApi('generate_summary_report', {
+      console.log('Generating summary report with data:', {
         questions: this.interviewData.questions,
         scores: this.interviewData.scores,
         candidate_name: this.interviewData.candidateName,
-        role: this.interviewData.role
+        role: this.interviewData.role,
+        tech_stack: this.interviewData.techStack
+      });
+      
+      // Format questions to ensure they have all required fields
+      const formattedQuestions = this.interviewData.questions.map(q => ({
+        type: q.type,
+        text: q.text,
+        answer: q.answer || '',
+        evaluation: q.evaluation ? {
+          score: q.evaluation.score || 0,
+          feedback: q.evaluation.feedback || '',
+          strengths: q.evaluation.strengths || [],
+          weaknesses: q.evaluation.weaknesses || [],
+          suggestions: q.evaluation.suggestions || []
+        } : null
+      }));
+      
+      const response = await callLlmApi('generate_summary_report', {
+        questions: formattedQuestions,
+        scores: this.interviewData.scores,
+        candidate_name: this.interviewData.candidateName,
+        role: this.interviewData.role,
+        tech_stack: this.interviewData.techStack
       });
       
       const report = {
-        overall_feedback: response.overall_feedback,
-        overall_score: response.overall_score,
+        overall_feedback: response.overall_feedback || "Thank you for completing the interview.",
+        overall_score: response.overall_score || this.calculateAverageScore(),
         strengths: response.strengths || [],
         areas_for_improvement: response.areas_for_improvement || [],
         next_steps: response.next_steps || [],
-        detailed_feedback: response.detailed_feedback || {}
+        detailed_feedback: response.detailed_feedback || {},
+        // Add fields needed for the summary display
+        assessment: {
+          recommendation: response.recommendation || 'Consider',
+          overall_impression: response.overall_impression || "You've completed all interview questions.",
+          technical_strengths: response.technical_strengths || response.strengths || [],
+          areas_for_improvement: response.areas_for_improvement || []
+        },
+        percentage: response.percentage || Math.round(this.calculateAverageScore() * 10),
+        total_score: response.total_score || this.calculateTotalScore(),
+        max_possible: response.max_possible || 10 * (this.interviewData.questions.length || 6)
       };
       
       this.interviewData.summaryReport = report;
@@ -530,14 +563,30 @@ class InterviewService {
       return report;
     } catch (error) {
       console.error('Error generating summary report:', error);
+      
+      // Get average score for calculations
+      const avgScore = this.calculateAverageScore();
+      
       // Fallback summary report
       const report = {
         overall_feedback: "Thank you for completing the interview. Here's a summary of your performance.",
-        overall_score: this.calculateAverageScore(),
+        overall_score: avgScore,
         strengths: ['You completed the full interview'],
         areas_for_improvement: ['Continue practicing technical questions'],
         next_steps: ['Review the feedback for each question', 'Practice more interviews'],
-        detailed_feedback: {}
+        detailed_feedback: {},
+        // Add fields needed for the summary display
+        assessment: {
+          recommendation: avgScore >= 8 ? 'Highly Recommended' : 
+                          avgScore >= 6 ? 'Recommended' : 
+                          avgScore >= 4 ? 'Consider' : 'Reject',
+          overall_impression: "You've completed all the interview questions. Keep practicing to improve your performance.",
+          technical_strengths: ['You completed the full interview'],
+          areas_for_improvement: ['Continue practicing technical questions']
+        },
+        percentage: Math.round(avgScore * 10),
+        total_score: this.calculateTotalScore(),
+        max_possible: 10 * (this.interviewData.questions.length || 6)
       };
       
       this.interviewData.summaryReport = report;
@@ -545,6 +594,15 @@ class InterviewService {
       
       return report;
     }
+  }
+  
+  /**
+   * Calculate total score across all questions
+   */
+  calculateTotalScore() {
+    const scores = Object.values(this.interviewData.scores);
+    if (scores.length === 0) return 0;
+    return scores.reduce((sum, score) => sum + score, 0);
   }
 
   /**
