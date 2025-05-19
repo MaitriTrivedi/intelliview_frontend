@@ -36,7 +36,15 @@ pipeline {
                             pwd
                             node --version
                             npm --version
-                            npm ci --prefer-offline --no-audit
+                            
+                            # Check if package-lock.json exists
+                            if [ -f "package-lock.json" ]; then
+                                echo "Using npm ci for clean install..."
+                                npm ci --prefer-offline --no-audit
+                            else
+                                echo "No package-lock.json found, using npm install..."
+                                npm install --prefer-offline --no-audit --legacy-peer-deps
+                            fi
                         '''
                     }
                 }
