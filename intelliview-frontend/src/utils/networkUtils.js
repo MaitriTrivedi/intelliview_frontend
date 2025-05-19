@@ -4,42 +4,53 @@ import { MAIN_API_BASE_URL, LLM_API_BASE_URL, getLlmApiBaseUrl } from '../config
 // Get the LLM service URL
 const LLM_API_URL = getLlmApiBaseUrl();
 
-const networkUtils = {
-  async checkMainServerConnection() {
-    try {
-      const response = await fetch('/api/health/');
-      return response.ok;
-    } catch (error) {
-      console.error('Error checking main server connection:', error);
-      return false;
-    }
-  },
-
-  async checkLlmServiceConnection() {
-    try {
-      const llmUrl = getLlmApiBaseUrl();
-      const response = await fetch(`${llmUrl}/health/`);
-      return response.ok;
-    } catch (error) {
-      console.error('Error checking LLM service connection:', error);
-      return false;
-    }
-  },
-
-  async logNetworkInfo() {
-    const mainServerReachable = await this.checkMainServerConnection();
-    const llmServiceReachable = await this.checkLlmServiceConnection();
-
-    console.log('Network Status:', {
-      mainServerReachable,
-      llmServiceReachable
-    });
-
-    return {
-      mainServerReachable,
-      llmServiceReachable
-    };
+// Network utility functions
+const checkMainServerConnection = async () => {
+  try {
+    const response = await fetch('/api/health/');
+    return response.ok;
+  } catch (error) {
+    console.error('Error checking main server connection:', error);
+    return false;
   }
 };
 
-export default networkUtils; 
+const checkLlmServiceConnection = async () => {
+  try {
+    const llmUrl = getLlmApiBaseUrl();
+    const response = await fetch(`${llmUrl}/health/`);
+    return response.ok;
+  } catch (error) {
+    console.error('Error checking LLM service connection:', error);
+    return false;
+  }
+};
+
+const logNetworkInfo = async () => {
+  const mainServerReachable = await checkMainServerConnection();
+  const llmServiceReachable = await checkLlmServiceConnection();
+
+  console.log('Network Status:', {
+    mainServerReachable,
+    llmServiceReachable
+  });
+
+  return {
+    mainServerReachable,
+    llmServiceReachable
+  };
+};
+
+// Export all functions
+export {
+  checkMainServerConnection,
+  checkLlmServiceConnection,
+  logNetworkInfo
+};
+
+// Export default object
+export default {
+  checkMainServerConnection,
+  checkLlmServiceConnection,
+  logNetworkInfo
+}; 

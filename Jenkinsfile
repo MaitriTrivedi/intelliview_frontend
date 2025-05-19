@@ -22,7 +22,7 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                dir('intelliview-frontend') {
+                dir('intelliview-frontend/intelliview-frontend') {
                     sh '''
                     # Install all dependencies including dev dependencies
                     npm install --include=dev
@@ -35,7 +35,7 @@ pipeline {
         
         stage('Lint') {
             steps {
-                dir('intelliview-frontend') {
+                dir('intelliview-frontend/intelliview-frontend') {
                     sh '''
                     # Run ESLint in CI mode
                     CI=true npm run lint:ci || true
@@ -46,7 +46,7 @@ pipeline {
         
         stage('Run Tests') {
             steps {
-                dir('intelliview-frontend') {
+                dir('intelliview-frontend/intelliview-frontend') {
                     sh '''
                     # Run tests with coverage
                     npm test -- --coverage --watchAll=false --ci --passWithNoTests
@@ -57,10 +57,12 @@ pipeline {
         
         stage('Build') {
             steps {
-                dir('intelliview-frontend') {
+                dir('intelliview-frontend/intelliview-frontend') {
                     sh '''
-                    # Build with ESLint plugin disabled
-                    DISABLE_ESLINT_PLUGIN=true npm run build
+                    # Build with ESLint plugin disabled and CI mode
+                    export CI=true
+                    export DISABLE_ESLINT_PLUGIN=true
+                    npm run build
                     '''
                 }
             }
@@ -68,10 +70,12 @@ pipeline {
         
         stage('Build Docker Image') {
             steps {
-                sh '''
-                docker build --no-cache -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
-                docker tag ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
-                '''
+                dir('intelliview-frontend') {
+                    sh '''
+                    docker build --no-cache -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                    docker tag ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
+                    '''
+                }
             }
         }
         
