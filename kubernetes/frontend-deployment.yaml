@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intelliview-frontend
+  labels:
+    app: intelliview-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: intelliview-frontend
+  template:
+    metadata:
+      labels:
+        app: intelliview-frontend
+    spec:
+      containers:
+      - name: intelliview-frontend
+        image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: intelliview-frontend
+  labels:
+    app: intelliview-frontend
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: intelliview-frontend 

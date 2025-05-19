@@ -79,14 +79,27 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh """
+                # Create kubernetes directory if it doesn't exist
+                mkdir -p kubernetes
+                
+                # Verify the deployment file exists
+                if [ ! -f "kubernetes/frontend-deployment.yaml" ]; then
+                    echo "Kubernetes deployment file not found!"
+                    exit 1
+                fi
+                
                 # Replace templated values in frontend deployment YAML
                 cat kubernetes/frontend-deployment.yaml | 
                 sed 's|\${DOCKER_REGISTRY}|${DOCKER_REGISTRY}|g' | 
                 sed 's|\${IMAGE_NAME}|${IMAGE_NAME}|g' | 
-                sed 's|\${IMAGE_TAG}|${IMAGE_TAG}|g' > frontend-deployment-final.yaml
+                sed 's|\${IMAGE_TAG}|${IMAGE_TAG}|g' > kubernetes/frontend-deployment-final.yaml
+                
+                # Debug: Show the generated deployment file
+                echo "Generated Kubernetes deployment file:"
+                cat kubernetes/frontend-deployment-final.yaml
                 
                 # Apply to Kubernetes cluster
-                kubectl apply -f frontend-deployment-final.yaml
+                kubectl apply -f kubernetes/frontend-deployment-final.yaml
                 
                 # Wait for deployment to complete
                 kubectl rollout status deployment/intelliview-frontend --timeout=300s
