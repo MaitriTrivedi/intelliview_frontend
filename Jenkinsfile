@@ -24,21 +24,22 @@ pipeline {
             steps {
                 dir('intelliview-frontend/intelliview-frontend') {
                     sh '''
-                    # Create a local .npmrc file
-                    echo "cache=./.npm-cache" > .npmrc
+                    # Create a temporary directory for npm cache
+                    mkdir -p ./.npm-cache
                     
-                    # Ensure the cache directory exists with correct permissions
-                    mkdir -p .npm-cache
-                    chmod 777 .npm-cache
+                    # Set npm environment variables
+                    export npm_config_cache="$PWD/.npm-cache"
+                    export npm_config_prefix="$PWD/.npm-global"
+                    export PATH="$PWD/.npm-global/bin:$PATH"
                     
                     # Clean install with legacy peer deps to handle typescript version conflicts
-                    npm install --include=dev --legacy-peer-deps --no-global
+                    npm install --include=dev --legacy-peer-deps --prefer-offline
                     
                     # Run security audit but don't fail if there are advisories
                     npm audit || true
                     
                     # Clean up
-                    rm -rf .npm-cache .npmrc
+                    rm -rf .npm-cache .npm-global
                     '''
                 }
             }
