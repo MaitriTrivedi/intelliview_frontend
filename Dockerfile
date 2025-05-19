@@ -17,7 +17,7 @@ COPY src/ ./src/
 COPY public/ ./public/
 
 # Copy config files if they exist
-COPY .env* ./*.config.js ./
+COPY *.config.js ./
 
 # Build the app with environment variables
 ENV CI=true

@@ -151,14 +151,20 @@ pipeline {
                                 echo "Contents of docker-build directory:"
                                 ls -la docker-build/
                                 
+                                echo "Verifying Dockerfile contents:"
+                                cat docker-build/Dockerfile
+                                
                                 echo "Building Docker image..."
                                 cd docker-build
                                 
-                                # Verify Dockerfile exists
-                                if [ ! -f Dockerfile ]; then
-                                    echo "Dockerfile is missing!"
+                                # Verify Dockerfile exists and contains npm install
+                                if ! grep -q "npm install" Dockerfile; then
+                                    echo "Dockerfile is not using npm install!"
                                     exit 1
                                 fi
+                                
+                                # Set environment variable to enable BuildKit
+                                export DOCKER_BUILDKIT=1
                                 
                                 docker build \
                                     --no-cache \
