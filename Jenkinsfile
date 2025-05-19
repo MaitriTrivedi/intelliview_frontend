@@ -22,7 +22,7 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                dir('intelliview_frontend/intelliview-frontend') {
+                dir('intelliview-frontend') {
                     sh '''
                     # First try npm ci, if it fails fall back to npm install
                     npm install
@@ -35,7 +35,7 @@ pipeline {
         
         stage('Run Tests') {
             steps {
-                dir('intelliview_frontend/intelliview-frontend') {
+                dir('intelliview-frontend') {
                     sh 'CI=true npm test -- --watchAll=false --coverage || echo "Tests failed but continuing"'
                 }
             }
@@ -43,7 +43,7 @@ pipeline {
         
         stage('Build') {
             steps {
-                dir('intelliview_frontend/intelliview-frontend') {
+                dir('intelliview-frontend') {
                     sh '''
                     npm run build
                     '''
@@ -53,12 +53,10 @@ pipeline {
         
         stage('Build Docker Image') {
             steps {
-                dir('intelliview_frontend') {
-                    sh '''
-                    docker build --no-cache -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
-                    docker tag ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
-                    '''
-                }
+                sh '''
+                docker build --no-cache -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                docker tag ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
+                '''
             }
         }
         
