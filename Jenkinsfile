@@ -6,7 +6,7 @@ pipeline {
     }
     
     environment {
-        DOCKER_PASSWORD = credentials('docker-password')
+        DOCKER_CREDENTIALS = credentials('DockerHubCredential')
         DOCKER_REGISTRY = 'docker.io/mtrivedi1410'
         IMAGE_NAME = 'intelliview-frontend'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
@@ -46,24 +46,25 @@ pipeline {
             }
         }
         
-        stage('Docker Build') {
+        stage('Docker Build and Push') {
             steps {
-                sh """
-                # Copy the build directory to the correct location for Docker
-                cp -r intelliview-frontend/build .
-                
-                # Build the Docker image
-                DOCKER_BUILDKIT=1 docker build -t ${params.DOCKER_USERNAME}/intelliview-frontend:${BUILD_NUMBER} .
-                """
-            }
-        }
-        
-        stage('Docker Push') {
-            steps {
-                sh """
-                echo ${DOCKER_PASSWORD} | docker login -u ${params.DOCKER_USERNAME} --password-stdin
-                docker push ${params.DOCKER_USERNAME}/intelliview-frontend:${BUILD_NUMBER}
-                """
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'DockerHubCredential', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                        sh """
+                        # Copy the build directory to the correct location for Docker
+                        cp -r intelliview-frontend/build .
+                        
+                        # Build the Docker image
+                        DOCKER_BUILDKIT=1 docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                        
+                        # Login to Docker Hub
+                        echo \${DOCKER_PASS} | docker login -u \${DOCKER_USER} --password-stdin
+                        
+                        # Push the image
+                        docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                        """
+                    }
+                }
             }
         }
         
@@ -72,8 +73,9 @@ pipeline {
                 sh """
                 # Replace templated values in frontend deployment YAML
                 cat kubernetes/frontend-deployment.yaml | 
-                sed 's|\${DOCKER_USERNAME}|${params.DOCKER_USERNAME}|g' | 
-                sed 's|\${BUILD_NUMBER}|${BUILD_NUMBER}|g' > frontend-deployment-final.yaml
+                sed 's|\${DOCKER_REGISTRY}|${DOCKER_REGISTRY}|g' | 
+                sed 's|\${IMAGE_NAME}|${IMAGE_NAME}|g' | 
+                sed 's|\${IMAGE_TAG}|${IMAGE_TAG}|g' > frontend-deployment-final.yaml
                 
                 # Apply to Kubernetes cluster
                 kubectl apply -f frontend-deployment-final.yaml
@@ -93,7 +95,14 @@ pipeline {
     post {
         always {
             echo "Cleaning up workspace..."
+            sh 'docker logout || true'
             cleanWs()
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
         }
     }
 } 
