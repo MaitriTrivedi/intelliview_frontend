@@ -12,7 +12,6 @@ pipeline {
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         NPM_CONFIG_CACHE = '.npm-cache'
         WORKSPACE = "${WORKSPACE}"
-        DOCKER_BUILDKIT = '0'
     }
     
     stages {
@@ -54,8 +53,8 @@ pipeline {
                         # Copy the build directory to the correct location for Docker
                         cp -r intelliview-frontend/build .
                         
-                        # Build the Docker image
-                        DOCKER_BUILDKIT=1 docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                        # Build the Docker image (without BuildKit)
+                        docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
                         
                         # Login to Docker Hub
                         echo \${DOCKER_PASS} | docker login -u \${DOCKER_USER} --password-stdin
