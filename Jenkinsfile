@@ -91,9 +91,14 @@ pipeline {
         
         stage('Deploy to Kubernetes') {
             steps {
-               debug:
-                msg: 
-                  - "Deployed in minikube"
+               script {
+                  echo "Deployed in minikube"
+                  sh """
+                      # Your deployment commands here, e.g.:
+                      kubectl apply -f k8s/deployment.yaml
+                      kubectl apply -f k8s/service.yaml
+                  """
+                }
                 // sh """
                 // # Check if minikube is running
                 // if ! minikube status | grep -q "Running"; then
