@@ -2,14 +2,14 @@ FROM node:18-alpine as build
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files from the correct location
+COPY intelliview-frontend/package*.json ./
 
 # Install dependencies with legacy peer deps
 RUN npm install --legacy-peer-deps --no-audit
 
-# Copy project files
-COPY . ./
+# Copy project files from the correct location
+COPY intelliview-frontend/ ./
 
 # Build the app
 RUN npm run build

@@ -43,7 +43,7 @@ pipeline {
             }
             steps {
                 script {
-                    dir('intelliview-frontend') {
+                    dir('intelliview-frontend/intelliview-frontend') {
                         sh '''#!/bin/bash -xe
                             echo "Node version: $(node --version)"
                             echo "NPM version: $(npm --version)"
@@ -107,7 +107,7 @@ pipeline {
             }
             steps {
                 script {
-                    dir('intelliview-frontend') {
+                    dir('intelliview-frontend/intelliview-frontend') {
                         sh '''#!/bin/bash -xe
                             # Ensure we're in the right directory
                             pwd
@@ -139,6 +139,12 @@ pipeline {
                                 docker version
                                 
                                 echo "Building Docker image..."
+                                # Add debug output
+                                echo "Current directory:"
+                                pwd
+                                echo "Directory contents:"
+                                ls -la
+                                
                                 docker build \
                                     --cache-from ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest \
                                     -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
