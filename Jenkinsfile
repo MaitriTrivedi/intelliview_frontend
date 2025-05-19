@@ -142,14 +142,17 @@ pipeline {
                                 pwd
                                 ls -la
                                 
-                                # Copy package.json to the correct location
-                                mkdir -p intelliview-frontend
-                                cp -r intelliview-frontend/* intelliview-frontend/ || true
+                                # Create a temporary build directory
+                                mkdir -p docker-build
                                 
-                                echo "Directory structure after copy:"
-                                ls -la intelliview-frontend/
+                                # Copy all necessary files to the build directory
+                                cp -r src public package*.json *.config.js .env* docker-build/ || true
+                                
+                                echo "Contents of docker-build directory:"
+                                ls -la docker-build/
                                 
                                 echo "Building Docker image..."
+                                cd docker-build
                                 docker build \
                                     --no-cache \
                                     -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
@@ -164,6 +167,10 @@ pipeline {
                                 docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
                                 
                                 echo "Docker build and push completed successfully"
+                                
+                                # Cleanup
+                                cd ..
+                                rm -rf docker-build
                             '''
                         }
                     }

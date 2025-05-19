@@ -3,7 +3,7 @@ FROM node:18-alpine as build
 WORKDIR /app
 
 # First copy package.json
-COPY intelliview-frontend/package.json package.json
+COPY package*.json ./
 
 # Install dependencies with specific flags to handle React and Jest
 RUN npm install \
@@ -13,13 +13,11 @@ RUN npm install \
     --production=false
 
 # Copy source code
-COPY intelliview-frontend/src/ ./src/
-COPY intelliview-frontend/public/ ./public/
+COPY src/ ./src/
+COPY public/ ./public/
 
 # Copy config files if they exist
-RUN mkdir -p /app/config
-COPY intelliview-frontend/.env* intelliview-frontend/*.config.js /app/config/
-RUN cp -n /app/config/* /app/ 2>/dev/null || true
+COPY .env* ./*.config.js ./
 
 # Build the app with environment variables
 ENV CI=true
