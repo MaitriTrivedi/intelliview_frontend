@@ -24,17 +24,21 @@ pipeline {
             steps {
                 dir('intelliview-frontend/intelliview-frontend') {
                     sh '''
-                    # Configure npm to use a workspace-specific cache
-                    npm config set cache $(pwd)/.npm-cache --global
+                    # Create a local .npmrc file
+                    echo "cache=./.npm-cache" > .npmrc
+                    
+                    # Ensure the cache directory exists with correct permissions
+                    mkdir -p .npm-cache
+                    chmod 777 .npm-cache
                     
                     # Clean install with legacy peer deps to handle typescript version conflicts
-                    npm install --include=dev --legacy-peer-deps
+                    npm install --include=dev --legacy-peer-deps --no-global
                     
                     # Run security audit but don't fail if there are advisories
                     npm audit || true
                     
-                    # Clean up cache after installation
-                    rm -rf $(pwd)/.npm-cache
+                    # Clean up
+                    rm -rf .npm-cache .npmrc
                     '''
                 }
             }
