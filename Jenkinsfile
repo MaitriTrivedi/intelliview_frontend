@@ -36,7 +36,10 @@ pipeline {
         stage('Run Tests') {
             steps {
                 dir('intelliview-frontend') {
-                    sh 'CI=true npm test -- --watchAll=false --coverage || echo "Tests failed but continuing"'
+                    sh '''
+                    # Run tests with coverage
+                    npm test -- --coverage --watchAll=false --ci --passWithNoTests
+                    '''
                 }
             }
         }
