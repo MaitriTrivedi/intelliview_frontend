@@ -146,13 +146,20 @@ pipeline {
                                 mkdir -p docker-build
                                 
                                 # Copy all necessary files to the build directory
-                                cp -r src public package*.json *.config.js .env* docker-build/ || true
+                                cp -r src public package*.json *.config.js Dockerfile docker-build/ || true
                                 
                                 echo "Contents of docker-build directory:"
                                 ls -la docker-build/
                                 
                                 echo "Building Docker image..."
                                 cd docker-build
+                                
+                                # Verify Dockerfile exists
+                                if [ ! -f Dockerfile ]; then
+                                    echo "Dockerfile is missing!"
+                                    exit 1
+                                fi
+                                
                                 docker build \
                                     --no-cache \
                                     -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
