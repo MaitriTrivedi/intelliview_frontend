@@ -24,8 +24,8 @@ pipeline {
             steps {
                 dir('intelliview-frontend') {
                     sh '''
-                    # First try npm ci, if it fails fall back to npm install
-                    npm install
+                    # Install all dependencies including dev dependencies
+                    npm install --include=dev
                     # Run security audit but don't fail if there are advisories
                     npm audit || true
                     '''
