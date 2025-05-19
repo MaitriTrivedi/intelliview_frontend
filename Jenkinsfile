@@ -1,15 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'cimg/node:18.17-browsers'
-            args '''
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                -v /usr/bin/docker:/usr/bin/docker \
-                -v /usr/lib/x86_64-linux-gnu/libltdl.so.7:/usr/lib/x86_64-linux-gnu/libltdl.so.7
-            '''
-            reuseNode true
-        }
-    }
+    agent any
     
     options {
         timestamps()
@@ -26,34 +16,34 @@ pipeline {
     }
     
     stages {
-        stage('Setup') {
-            steps {
-                script {
-                    sh '''#!/bin/bash -xe
-                        node --version
-                        npm --version
-                        docker --version || true
-                    '''
+        stage('Setup Node Environment') {
+            agent {
+                docker {
+                    image 'cimg/node:18.17-browsers'
+                    args '-v $HOME/.npm:/.npm'
+                    reuseNode true
                 }
             }
-        }
-        
-        stage('Checkout') {
             steps {
-                checkout scm
+                sh '''#!/bin/bash -xe
+                    node --version
+                    npm --version
+                '''
             }
         }
         
         stage('Install Dependencies') {
+            agent {
+                docker {
+                    image 'cimg/node:18.17-browsers'
+                    args '-v $HOME/.npm:/.npm'
+                    reuseNode true
+                }
+            }
             steps {
                 script {
                     dir('intelliview-frontend/intelliview-frontend') {
                         sh '''#!/bin/bash -xe
-                            pwd
-                            node --version
-                            npm --version
-                            
-                            # Check if package-lock.json exists
                             if [ -f "package-lock.json" ]; then
                                 echo "Using npm ci for clean install..."
                                 npm ci --prefer-offline --no-audit
@@ -70,6 +60,13 @@ pipeline {
         stage('Parallel Quality Checks') {
             parallel {
                 stage('Lint') {
+                    agent {
+                        docker {
+                            image 'cimg/node:18.17-browsers'
+                            args '-v $HOME/.npm:/.npm'
+                            reuseNode true
+                        }
+                    }
                     steps {
                         script {
                             dir('intelliview-frontend/intelliview-frontend') {
@@ -80,6 +77,13 @@ pipeline {
                 }
                 
                 stage('Run Tests') {
+                    agent {
+                        docker {
+                            image 'cimg/node:18.17-browsers'
+                            args '-v $HOME/.npm:/.npm'
+                            reuseNode true
+                        }
+                    }
                     steps {
                         script {
                             dir('intelliview-frontend/intelliview-frontend') {
@@ -92,6 +96,13 @@ pipeline {
         }
         
         stage('Build') {
+            agent {
+                docker {
+                    image 'cimg/node:18.17-browsers'
+                    args '-v $HOME/.npm:/.npm'
+                    reuseNode true
+                }
+            }
             steps {
                 script {
                     dir('intelliview-frontend/intelliview-frontend') {
