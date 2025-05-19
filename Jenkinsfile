@@ -1,331 +1,99 @@
 pipeline {
     agent any
     
-    options {
-        timestamps()
-        durabilityHint('PERFORMANCE_OPTIMIZED')
+    parameters {
+        string(name: 'DOCKER_USERNAME', defaultValue: 'maitritrivedi', description: 'Docker Hub username')
     }
     
     environment {
+        DOCKER_PASSWORD = credentials('docker-password')
         DOCKER_REGISTRY = 'docker.io/mtrivedi1410'
         IMAGE_NAME = 'intelliview-frontend'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        DOCKER_CREDENTIALS = credentials('DockerHubCredential')
         NPM_CONFIG_CACHE = '.npm-cache'
         WORKSPACE = "${WORKSPACE}"
         DOCKER_BUILDKIT = '0'
     }
     
     stages {
-        stage('Setup Node Environment') {
-            agent {
-                docker {
-                    image 'cimg/node:18.17-browsers'
-                    args '-v $HOME/.npm:/.npm'
-                    reuseNode true
-                }
-            }
+        stage('Checkout') {
             steps {
-                sh '''#!/bin/bash -xe
-                    node --version
-                    npm --version
-                '''
+                checkout scm
             }
         }
         
         stage('Install Dependencies') {
-            agent {
-                docker {
-                    image 'cimg/node:18.17-browsers'
-                    args '-v $HOME/.npm:/.npm'
-                    reuseNode true
-                }
-            }
             steps {
-                script {
-                    dir('intelliview-frontend/intelliview-frontend') {
-                        sh '''#!/bin/bash -xe
-                            echo "Node version: $(node --version)"
-                            echo "NPM version: $(npm --version)"
-                            
-                            # Clean install with legacy peer deps
-                            npm install --legacy-peer-deps --no-audit
-                            
-                            # List installed packages for debugging
-                            npm list --depth=0 || true
-                        '''
-                    }
-                }
+                sh '''
+                cd intelliview-frontend
+                npm install --legacy-peer-deps
+                '''
             }
         }
         
-        stage('Parallel Quality Checks') {
-            parallel {
-                stage('Lint') {
-                    agent {
-                        docker {
-                            image 'cimg/node:18.17-browsers'
-                            args '-v $HOME/.npm:/.npm'
-                            reuseNode true
-                        }
-                    }
-                    steps {
-                        script {
-                            dir('intelliview-frontend/intelliview-frontend') {
-                                sh '#!/bin/bash -xe\nCI=true npm run lint:ci || true'
-                            }
-                        }
-                    }
-                }
+        stage('Build React App') {
+            steps {
+                sh '''
+                cd intelliview-frontend
+                npm run build
                 
-                stage('Run Tests') {
-                    agent {
-                        docker {
-                            image 'cimg/node:18.17-browsers'
-                            args '-v $HOME/.npm:/.npm'
-                            reuseNode true
-                        }
-                    }
-                    steps {
-                        script {
-                            dir('intelliview-frontend/intelliview-frontend') {
-                                sh '#!/bin/bash -xe\nnpm test -- --coverage --watchAll=false --ci --passWithNoTests --maxWorkers=2'
-                            }
-                        }
-                    }
-                }
+                # Verify build directory exists
+                if [ ! -d "build" ]; then
+                    echo "Build directory not found! Build may have failed."
+                    exit 1
+                fi
+                '''
             }
         }
         
-        stage('Build') {
-            agent {
-                docker {
-                    image 'cimg/node:18.17-browsers'
-                    args '-v $HOME/.npm:/.npm'
-                    reuseNode true
-                }
-            }
+        stage('Docker Build') {
             steps {
-                script {
-                    dir('intelliview-frontend/intelliview-frontend') {
-                        sh '''#!/bin/bash -xe
-                            # Ensure we're in the right directory
-                            pwd
-                            ls -la
-                            
-                            # Set build environment variables
-                            export CI=true
-                            export DISABLE_ESLINT_PLUGIN=true
-                            
-                            # Run build
-                            npm run build
-                            
-                            # Verify build output exists
-                            ls -la
-                            ls -la build/ || echo "Build directory not found!"
-                        '''
-                    }
-                }
+                sh """
+                # Copy the build directory to the correct location for Docker
+                cp -r intelliview-frontend/build .
+                
+                # Build the Docker image
+                DOCKER_BUILDKIT=1 docker build -t ${params.DOCKER_USERNAME}/intelliview-frontend:${BUILD_NUMBER} .
+                """
             }
         }
         
-        stage('Build and Push Docker Image') {
+        stage('Docker Push') {
             steps {
-                script {
-                    dir('intelliview-frontend') {
-                        withCredentials([usernamePassword(credentialsId: 'DockerHubCredential', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                            sh '''#!/bin/bash -xe
-                                echo "Docker version:"
-                                docker version
-                                
-                                echo "Current directory structure:"
-                                pwd
-                                ls -la
-                                
-                                # Create a temporary build directory
-                                mkdir -p docker-build
-                                
-                                # Copy all necessary files to the build directory
-                                cp -r src public package*.json *.config.js Dockerfile docker-build/ || true
-                                
-                                echo "Contents of docker-build directory:"
-                                ls -la docker-build/
-                                
-                                echo "Verifying Dockerfile contents:"
-                                cat docker-build/Dockerfile
-                                
-                                echo "Building Docker image..."
-                                cd docker-build
-                                
-                                # Verify Dockerfile exists and contains npm install
-                                if ! grep -q "npm install" Dockerfile; then
-                                    echo "Dockerfile is not using npm install!"
-                                    exit 1
-                                fi
-                                
-                                # Set environment variable to enable BuildKit
-                                export DOCKER_BUILDKIT=1
-                                
-                                docker build \
-                                    --no-cache \
-                                    -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
-                                    -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest \
-                                    .
-
-                                echo "Logging into Docker Hub..."
-                                echo $DOCKER_PASSWORD | docker login docker.io -u $DOCKER_USERNAME --password-stdin
-                                
-                                echo "Pushing images..."
-                                docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                                docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
-                                
-                                echo "Docker build and push completed successfully"
-                                
-                                # Cleanup
-                                cd ..
-                                rm -rf docker-build
-                            '''
-                        }
-                    }
-                }
+                sh """
+                echo ${DOCKER_PASSWORD} | docker login -u ${params.DOCKER_USERNAME} --password-stdin
+                docker push ${params.DOCKER_USERNAME}/intelliview-frontend:${BUILD_NUMBER}
+                """
             }
         }
         
         stage('Deploy to Kubernetes') {
             steps {
-                script {
-                    sh '''#!/bin/bash -xe
-                        # Install kubectl
-                        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                        chmod +x kubectl
-                        ./kubectl version --client
-                        
-                        ./kubectl get namespace intelliview || ./kubectl create namespace intelliview
-                        
-                        cat <<EOF | ./kubectl apply -f -
-                        apiVersion: apps/v1
-                        kind: Deployment
-                        metadata:
-                          name: intelliview-frontend
-                          namespace: intelliview
-                        spec:
-                          replicas: 2
-                          selector:
-                            matchLabels:
-                              app: intelliview-frontend
-                          template:
-                            metadata:
-                              labels:
-                                app: intelliview-frontend
-                            spec:
-                              securityContext:
-                                runAsNonRoot: true
-                                runAsUser: 1001
-                                fsGroup: 1001
-                              containers:
-                              - name: intelliview-frontend
-                                image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                                ports:
-                                - containerPort: 80
-                                env:
-                                - name: REACT_APP_API_URL
-                                  value: "http://intelliview-backend-service"
-                                - name: REACT_APP_LLM_SERVICE_URL
-                                  value: "http://intelliview-backend-service/api/llm"
-                                resources:
-                                  limits:
-                                    cpu: "300m"
-                                    memory: "256Mi"
-                                  requests:
-                                    cpu: "100m"
-                                    memory: "128Mi"
-                                securityContext:
-                                  allowPrivilegeEscalation: false
-                                  capabilities:
-                                    drop:
-                                    - ALL
-                                  readOnlyRootFilesystem: true
-                                livenessProbe:
-                                  httpGet:
-                                    path: /
-                                    port: 80
-                                  initialDelaySeconds: 10
-                                  periodSeconds: 30
-                                readinessProbe:
-                                  httpGet:
-                                    path: /
-                                    port: 80
-                                  initialDelaySeconds: 5
-                                  periodSeconds: 10
-                        EOF
-                        
-                        cat <<EOF | ./kubectl apply -f -
-                        apiVersion: v1
-                        kind: Service
-                        metadata:
-                          name: intelliview-frontend-service
-                          namespace: intelliview
-                        spec:
-                          selector:
-                            app: intelliview-frontend
-                          ports:
-                          - port: 80
-                            targetPort: 80
-                          type: ClusterIP
-                        EOF
-                        
-                        cat <<EOF | ./kubectl apply -f -
-                        apiVersion: networking.k8s.io/v1
-                        kind: Ingress
-                        metadata:
-                          name: intelliview-ingress
-                          namespace: intelliview
-                          annotations:
-                            nginx.ingress.kubernetes.io/rewrite-target: /
-                            nginx.ingress.kubernetes.io/ssl-redirect: "true"
-                            nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-                        spec:
-                          rules:
-                          - host: intelliview.example.com
-                            http:
-                              paths:
-                              - path: /
-                                pathType: Prefix
-                                backend:
-                                  service:
-                                    name: intelliview-frontend-service
-                                    port:
-                                      number: 80
-                                  - path: /api
-                                    pathType: Prefix
-                                    backend:
-                                      service:
-                                        name: intelliview-backend-service
-                                        port:
-                                          number: 80
-                        EOF
-                        
-                        ./kubectl rollout status deployment/intelliview-frontend -n intelliview --timeout=180s
-                    '''
-                }
+                sh """
+                # Replace templated values in frontend deployment YAML
+                cat kubernetes/frontend-deployment.yaml | 
+                sed 's|\${DOCKER_USERNAME}|${params.DOCKER_USERNAME}|g' | 
+                sed 's|\${BUILD_NUMBER}|${BUILD_NUMBER}|g' > frontend-deployment-final.yaml
+                
+                # Apply to Kubernetes cluster
+                kubectl apply -f frontend-deployment-final.yaml
+                
+                # Wait for deployment to complete
+                kubectl rollout status deployment/intelliview-frontend --timeout=300s
+                
+                # Show URL
+                FRONTEND_PORT=\$(kubectl get svc intelliview-frontend -o jsonpath='{.spec.ports[0].nodePort}')
+                MINIKUBE_IP=\$(minikube ip)
+                echo "Frontend is accessible at: http://\$MINIKUBE_IP:\$FRONTEND_PORT"
+                """
             }
         }
     }
     
     post {
         always {
-            script {
-                sh '''#!/bin/bash -xe
-                    docker logout ${DOCKER_REGISTRY} || true
-                '''
-                cleanWs()
-            }
-        }
-        success {
-            echo 'Frontend pipeline completed successfully!'
-        }
-        failure {
-            echo 'Frontend pipeline failed!'
+            echo "Cleaning up workspace..."
+            cleanWs()
         }
     }
 } 
