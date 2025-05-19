@@ -13,6 +13,7 @@ pipeline {
         DOCKER_CREDENTIALS = credentials('DockerHubCredential')
         NPM_CONFIG_CACHE = '.npm-cache'
         WORKSPACE = "${WORKSPACE}"
+        DOCKER_BUILDKIT = '0'
     }
     
     stages {
@@ -122,17 +123,27 @@ pipeline {
                     dir('intelliview-frontend') {
                         withCredentials([usernamePassword(credentialsId: 'DockerHubCredential', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                             sh '''#!/bin/bash -xe
+                                echo "Docker version:"
                                 docker version
-                                DOCKER_BUILDKIT=1 docker build \
-                                    --build-arg BUILDKIT_INLINE_CACHE=1 \
+                                
+                                echo "Pulling latest image for caching..."
+                                docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest || true
+                                
+                                echo "Building Docker image..."
+                                docker build \
                                     --cache-from ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest \
                                     -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
                                     -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest \
                                     .
 
+                                echo "Logging into Docker Hub..."
                                 echo $DOCKER_PASSWORD | docker login docker.io -u $DOCKER_USERNAME --password-stdin
+                                
+                                echo "Pushing images..."
                                 docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
                                 docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
+                                
+                                echo "Docker build and push completed successfully"
                             '''
                         }
                     }
