@@ -2,19 +2,24 @@ FROM node:18-alpine as build
 
 WORKDIR /app
 
-# Copy package files from the correct location
-COPY intelliview-frontend/package*.json ./
+# First copy package.json
+COPY intelliview-frontend/package.json package.json
 
 # Install dependencies with specific flags to handle React and Jest
 RUN npm install \
     --legacy-peer-deps \
     --no-audit \
-    --no-package-lock \
     --no-optional \
     --production=false
 
-# Copy project files from the correct location
-COPY intelliview-frontend/ ./
+# Copy source code
+COPY intelliview-frontend/src/ ./src/
+COPY intelliview-frontend/public/ ./public/
+
+# Copy config files if they exist
+RUN mkdir -p /app/config
+COPY intelliview-frontend/.env* intelliview-frontend/*.config.js /app/config/
+RUN cp -n /app/config/* /app/ 2>/dev/null || true
 
 # Build the app with environment variables
 ENV CI=true

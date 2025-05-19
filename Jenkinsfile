@@ -138,15 +138,20 @@ pipeline {
                                 echo "Docker version:"
                                 docker version
                                 
-                                echo "Building Docker image..."
-                                # Add debug output
-                                echo "Current directory:"
+                                echo "Current directory structure:"
                                 pwd
-                                echo "Directory contents:"
                                 ls -la
                                 
+                                # Copy package.json to the correct location
+                                mkdir -p intelliview-frontend
+                                cp -r intelliview-frontend/* intelliview-frontend/ || true
+                                
+                                echo "Directory structure after copy:"
+                                ls -la intelliview-frontend/
+                                
+                                echo "Building Docker image..."
                                 docker build \
-                                    --cache-from ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest \
+                                    --no-cache \
                                     -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
                                     -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest \
                                     .
