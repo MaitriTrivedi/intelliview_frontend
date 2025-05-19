@@ -60,8 +60,8 @@ export const AuthProvider = ({ children }) => {
         // Clean up function
         return () => {
             userChecked.current = false;  // Reset for next mount
-    };
-    }, []); // Empty dependency array
+        };
+    }, [checkUser]); // Add checkUser to dependency array
 
     // Force refresh user data - with debounce protection
     const refreshUser = async () => {

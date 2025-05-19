@@ -21,7 +21,7 @@ const Login = () => {
     
     // Check auth status on mount
     checkAuthStatus && checkAuthStatus();
-  }, []);
+  }, [checkAuthStatus]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

@@ -1,3 +1,5 @@
+// Remove unused imports at the top of the file
+
 import api from '../config/api';
 import { getLlmApiBaseUrl, ENABLE_LLM_API_LOGS, FEATURES, MAIN_API_BASE_URL } from '../config/environment';
 import axios from 'axios';
@@ -117,7 +119,7 @@ export const INTERVIEW_PHASES = {
 /**
  * Service that handles the interview flow by interacting with the LLM API
  */
-class InterviewService {
+const interviewService = {
   constructor() {
     this.interviewData = {
       candidateName: '',
@@ -131,7 +133,7 @@ class InterviewService {
     
     // Ping the LLM service on initialization
     this.pingLlmService();
-  }
+  },
   
   /**
    * Pings the LLM service to check connectivity
@@ -158,7 +160,7 @@ class InterviewService {
       console.error('LLM service connectivity test failed:', error);
       return false;
     }
-  }
+  },
 
   /**
    * Initialize the interview with candidate data
@@ -188,7 +190,7 @@ class InterviewService {
     
     // Return the fresh interview data
     return this.interviewData;
-  }
+  },
 
   /**
    * Generate introduction question
@@ -235,7 +237,7 @@ class InterviewService {
       this.interviewData.currentPhase = INTERVIEW_PHASES.INTRODUCTION;
       return fallbackQuestion;
     }
-  }
+  },
 
   /**
    * Generate project question based on resume data
@@ -269,7 +271,7 @@ class InterviewService {
       this.interviewData.currentPhase = INTERVIEW_PHASES.PROJECT;
       return fallbackQuestion;
     }
-  }
+  },
 
   /**
    * Generate technical question
@@ -305,7 +307,7 @@ class InterviewService {
       this.interviewData.currentPhase = INTERVIEW_PHASES.TECHNICAL;
       return fallbackQuestion;
     }
-  }
+  },
 
   /**
    * Generate CS fundamentals question
@@ -340,7 +342,7 @@ class InterviewService {
       this.interviewData.currentPhase = INTERVIEW_PHASES.CS_FUNDAMENTALS;
       return fallbackQuestion;
     }
-  }
+  },
 
   /**
    * Generate DSA question
@@ -373,7 +375,7 @@ class InterviewService {
       this.interviewData.currentPhase = INTERVIEW_PHASES.DSA;
       return fallbackQuestion;
     }
-  }
+  },
 
   /**
    * Generate followup question based on previous answer
@@ -412,7 +414,7 @@ class InterviewService {
       this.interviewData.currentPhase = INTERVIEW_PHASES.FOLLOWUP;
       return fallbackQuestion;
     }
-  }
+  },
 
   /**
    * Evaluate an answer to a question
@@ -500,7 +502,7 @@ class InterviewService {
       
       return fallback;
     }
-  }
+  },
 
   /**
    * Generate a summary report of the interview
@@ -594,7 +596,7 @@ class InterviewService {
       
       return report;
     }
-  }
+  },
   
   /**
    * Calculate total score across all questions
@@ -603,7 +605,7 @@ class InterviewService {
     const scores = Object.values(this.interviewData.scores);
     if (scores.length === 0) return 0;
     return scores.reduce((sum, score) => sum + score, 0);
-  }
+  },
 
   /**
    * Helper method to calculate average score
@@ -612,7 +614,7 @@ class InterviewService {
     const scores = Object.values(this.interviewData.scores);
     if (scores.length === 0) return 3; // Default score if no questions answered
     return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
-  }
+  },
 
   /**
    * Move to the next phase of the interview
@@ -735,21 +737,21 @@ class InterviewService {
         console.error('Unknown phase:', nextPhase);
         return null;
     }
-  }
+  },
 
   /**
    * Get the current interview data
    */
   getInterviewData() {
     return this.interviewData;
-  }
+  },
 
   /**
    * Save interview progress to localStorage
    */
   saveProgress() {
     localStorage.setItem('interviewProgress', JSON.stringify(this.interviewData));
-  }
+  },
 
   /**
    * Load interview progress from localStorage
@@ -761,7 +763,7 @@ class InterviewService {
       return true;
     }
     return false;
-  }
+  },
 
   /**
    * Clear interview progress
@@ -778,6 +780,6 @@ class InterviewService {
       scores: {}
     };
   }
-}
+};
 
-export default new InterviewService(); 
+export default interviewService; 

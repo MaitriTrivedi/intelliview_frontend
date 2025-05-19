@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api, { API_BASE_URL } from '../config/api';
 import { parseResume } from '../utils/resumeParser';
-import { SERVER_IP } from '../config/environment';
 import '../styles/Home.css';
 
 const Home = () => {

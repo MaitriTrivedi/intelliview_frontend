@@ -31,7 +31,7 @@ export const FEATURES = {
   USE_LLM_FALLBACKS: true,      // Use fallback responses when LLM service is unavailable
 };
 
-export default {
+const environmentConfig = {
   MAIN_API_BASE_URL,
   LLM_API_BASE_URL,
   getApiBaseUrl,
@@ -42,4 +42,6 @@ export default {
   ENABLE_API_LOGS,
   ENABLE_LLM_API_LOGS,
   FEATURES,
-}; 
+};
+
+export default environmentConfig; 

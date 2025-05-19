@@ -72,63 +72,13 @@ const extractPersonalInfo = (text) => {
 };
 
 // Main function to extract resume data
-export const parseResume = async (fileUrl) => {
+export const parseResume = async (resumeId) => {
   try {
-    console.log('Requesting resume parsing for file:', fileUrl);
-    
-    // Request the backend to process the resume
-    const response = await api.post('/api/resumes/parse/', {
-      resume_id: fileUrl
-    });
-    
-    console.log('Backend resume parse response:', response.data);
-    
-    // Extract the parsed resume data
-    const resumeData = {
-      personal_info: {
-        name: response.data.user?.first_name || "Resume Owner",
-        email: response.data.user?.email || "user@example.com",
-      },
-      education: response.data.education || [],
-      experience: response.data.experience || [],
-      projects: response.data.projects || []
-    };
-    
-    return resumeData;
+    const response = await api.get(`/api/resumes/${resumeId}/parse/`);
+    return response.data;
   } catch (error) {
     console.error('Error parsing resume:', error);
-    // Fallback to mock data if the backend fails
-    return {
-      personal_info: {
-        name: "Resume Owner",
-        email: "user@example.com",
-        phone: "123-456-7890"
-      },
-      education: [
-        {
-          institution: "University placeholder",
-          degree: "Computer Science",
-          year: "2020-2024",
-          gpa: "3.8"
-        }
-      ],
-      experience: [
-        {
-          position: "Software Developer",
-          company: "Tech Company",
-          duration: "2022-Present",
-          description: "Developed web applications using React"
-        }
-      ],
-      projects: [
-        {
-          name: "IntelliView",
-          description: "AI-powered interview preparation platform",
-          technologies: ["React", "Django", "Machine Learning"]
-        }
-      ],
-      skills: ["JavaScript", "React", "Python", "Django"]
-    };
+    throw error;
   }
 };
 

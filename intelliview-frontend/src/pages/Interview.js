@@ -192,7 +192,7 @@ const Interview = () => {
     };
     
     initializeInterview();
-  }, []);
+  }, [location.state, navigate]);
   
   // Helper function to extract tech stack from resume
   const extractTechStackFromResume = (resumeData) => {
