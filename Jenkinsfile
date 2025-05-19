@@ -54,8 +54,7 @@ pipeline {
                         # Verify Docker is running
                         docker info || (echo "Docker is not running" && exit 1)
                         
-                        # Copy the build directory to the correct location for Docker
-                        cp -r intelliview-frontend/build .
+                        cd intelliview-frontend
                         
                         # Ensure the Dockerfile exists
                         if [ ! -f "Dockerfile" ]; then
