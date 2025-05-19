@@ -12,6 +12,7 @@ pipeline {
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         NPM_CONFIG_CACHE = '.npm-cache'
         WORKSPACE = "${WORKSPACE}"
+        DOCKER_BUILDKIT = '0'  // Explicitly disable BuildKit
     }
     
     stages {
@@ -50,11 +51,20 @@ pipeline {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'DockerHubCredential', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
                         sh """
+                        # Verify Docker is running
+                        docker info || (echo "Docker is not running" && exit 1)
+                        
                         # Copy the build directory to the correct location for Docker
                         cp -r intelliview-frontend/build .
                         
-                        # Build the Docker image (without BuildKit)
-                        docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                        # Ensure the Dockerfile exists
+                        if [ ! -f "Dockerfile" ]; then
+                            echo "Dockerfile not found!"
+                            exit 1
+                        fi
+                        
+                        # Build the Docker image with BuildKit disabled
+                        DOCKER_BUILDKIT=0 docker build --no-cache -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
                         
                         # Login to Docker Hub
                         echo \${DOCKER_PASS} | docker login -u \${DOCKER_USER} --password-stdin
