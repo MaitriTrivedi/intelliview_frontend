@@ -1,37 +1,43 @@
-FROM node:18-alpine as build
+# Step 1: Build with Node.js
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
-# First copy package.json
+# Copy package files first for better caching
 COPY package*.json ./
-
-# Install dependencies with specific flags to handle React and Jest
 RUN npm install \
     --legacy-peer-deps \
     --no-audit \
     --no-optional \
     --production=false
 
-# Copy source code
-COPY src/ ./src/
-COPY public/ ./public/
-
-# Copy config files if they exist
-COPY *.config.js ./
-
-# Build the app with environment variables
-ENV CI=true
-ENV DISABLE_ESLINT_PLUGIN=true
+# Copy source files
+COPY . .
+# Build the application
 RUN npm run build
 
-# Use nginx to serve the built app
+# Step 2: Serve with nginx
 FROM nginx:alpine
 
-# Copy the build output to nginx
+# Create nginx user
+RUN adduser -D -H -u 1001 -s /sbin/nologin nginx-user
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy built files from build stage
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Copy nginx configuration if needed
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Set proper permissions
+RUN chown -R nginx-user:nginx-user /usr/share/nginx/html && \
+    chmod -R 755 /usr/share/nginx/html && \
+    chown -R nginx-user:nginx-user /var/cache/nginx && \
+    chown -R nginx-user:nginx-user /var/log/nginx && \
+    chown -R nginx-user:nginx-user /etc/nginx/conf.d && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx-user:nginx-user /var/run/nginx.pid
+
+USER nginx-user
 
 EXPOSE 80
 
