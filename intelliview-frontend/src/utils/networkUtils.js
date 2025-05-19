@@ -1,8 +1,10 @@
-import { API_BASE_URL } from '../config/api';
-import { MAIN_API_BASE_URL, LLM_API_BASE_URL, getLlmApiBaseUrl } from '../config/environment';
+import { getLlmApiBaseUrl } from '../config/environment';
 
-// Get the LLM service URL
-const LLM_API_URL = getLlmApiBaseUrl();
+// Remove unused imports and variables if they're not needed elsewhere
+// const API_BASE_URL = process.env.REACT_APP_API_URL;
+// const MAIN_API_BASE_URL = process.env.REACT_APP_MAIN_API_URL;
+// const LLM_API_BASE_URL = process.env.REACT_APP_LLM_API_URL;
+// const LLM_API_URL = process.env.REACT_APP_LLM_API_URL;
 
 // Network utility functions
 export const checkMainServerConnection = async () => {

@@ -1,8 +1,6 @@
 // Remove unused imports at the top of the file
 
-import api from '../config/api';
 import { getLlmApiBaseUrl, ENABLE_LLM_API_LOGS, FEATURES, MAIN_API_BASE_URL } from '../config/environment';
-import axios from 'axios';
 
 // LLM Service configuration
 const LLM_SERVICE_URL = getLlmApiBaseUrl();
@@ -450,6 +448,9 @@ const interviewService = {
         case INTERVIEW_PHASES.DSA:
           fallback.feedback = "Your answer to this computer science question has been recorded. Let's continue with the interview.";
           break;
+        default:
+          fallback.feedback = "Your answer has been recorded. Let's continue with the interview.";
+          break;
       }
       
       return fallback;
@@ -658,8 +659,9 @@ const interviewService = {
           console.log('Moving from FOLLOWUP to SUMMARY');
           break;
         default:
-          console.log('Unknown phase or PROJECT without proper setup, defaulting to INTRODUCTION:', this.interviewData.currentPhase);
+          console.log('Unknown phase, defaulting to INTRODUCTION');
           nextPhase = INTERVIEW_PHASES.INTRODUCTION;
+          break;
       }
     }
     
@@ -731,7 +733,7 @@ const interviewService = {
           return await this.generateFollowupQuestion('previous question', 'previous answer');
         }
       case INTERVIEW_PHASES.SUMMARY:
-        const report = await this.generateSummaryReport();
+        await this.generateSummaryReport();
         return null; // No more questions, return null
       default:
         console.error('Unknown phase:', nextPhase);

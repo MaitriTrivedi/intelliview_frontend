@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import interviewService, { INTERVIEW_PHASES } from '../services/interviewService';
 import { logNetworkInfo } from '../utils/networkUtils';
 import { checkAndFixInterviewState } from '../utils/resetInterviewStorage';
-import { MAIN_API_BASE_URL } from '../config/environment';
 import useSaveInterviewHistory from '../hooks/useSaveInterviewHistory';
 import saveQuestionAnswer from '../hooks/useSaveQuestionAnswer';
 import '../styles/Interview.css';

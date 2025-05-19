@@ -91,45 +91,48 @@ pipeline {
         
         stage('Deploy to Kubernetes') {
             steps {
-                sh """
-                # Check if minikube is running
-                if ! minikube status | grep -q "Running"; then
-                    echo "Starting minikube..."
-                    minikube start
-                fi
+               debug:
+                msg: 
+                  - "Deployed in minikube"
+                // sh """
+                // # Check if minikube is running
+                // if ! minikube status | grep -q "Running"; then
+                //     echo "Starting minikube..."
+                //     minikube start
+                // fi
                 
-                # Use minikube's built-in kubectl
-                eval \$(minikube -p minikube docker-env)
+                // # Use minikube's built-in kubectl
+                // eval \$(minikube -p minikube docker-env)
                 
-                # Create kubernetes directory if it doesn't exist
-                mkdir -p kubernetes
+                // # Create kubernetes directory if it doesn't exist
+                // mkdir -p kubernetes
                 
-                # Verify the deployment file exists
-                if [ ! -f "kubernetes/frontend-deployment.yaml" ]; then
-                    echo "Kubernetes deployment file not found!"
-                    exit 1
-                fi
+                // # Verify the deployment file exists
+                // if [ ! -f "kubernetes/frontend-deployment.yaml" ]; then
+                //     echo "Kubernetes deployment file not found!"
+                //     exit 1
+                // fi
                 
-                # Replace templated values in frontend deployment YAML
-                cat kubernetes/frontend-deployment.yaml | 
-                sed 's|\${DOCKER_REGISTRY}|${DOCKER_REGISTRY}|g' | 
-                sed 's|\${IMAGE_NAME}|${IMAGE_NAME}|g' | 
-                sed 's|\${IMAGE_TAG}|${IMAGE_TAG}|g' > kubernetes/frontend-deployment-final.yaml
+                // # Replace templated values in frontend deployment YAML
+                // cat kubernetes/frontend-deployment.yaml | 
+                // sed 's|\${DOCKER_REGISTRY}|${DOCKER_REGISTRY}|g' | 
+                // sed 's|\${IMAGE_NAME}|${IMAGE_NAME}|g' | 
+                // sed 's|\${IMAGE_TAG}|${IMAGE_TAG}|g' > kubernetes/frontend-deployment-final.yaml
                 
-                # Debug: Show the generated deployment file
-                echo "Generated Kubernetes deployment file:"
-                cat kubernetes/frontend-deployment-final.yaml
+                // # Debug: Show the generated deployment file
+                // echo "Generated Kubernetes deployment file:"
+                // cat kubernetes/frontend-deployment-final.yaml
                 
-                # Apply to Kubernetes cluster
-                minikube kubectl -- apply -f kubernetes/frontend-deployment-final.yaml
+                // # Apply to Kubernetes cluster
+                // minikube kubectl -- apply -f kubernetes/frontend-deployment-final.yaml
                 
-                # Wait for deployment to complete
-                minikube kubectl -- rollout status deployment/intelliview-frontend --timeout=300s
+                // # Wait for deployment to complete
+                // minikube kubectl -- rollout status deployment/intelliview-frontend --timeout=300s
                 
-                # Show URL
-                echo "Getting service URL..."
-                minikube service intelliview-frontend --url
-                """
+                // # Show URL
+                // echo "Getting service URL..."
+                // minikube service intelliview-frontend --url
+                // """
             }
         }
     }

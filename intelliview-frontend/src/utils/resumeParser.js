@@ -2,7 +2,7 @@
 import api from '../config/api';
 
 // Extract sections from text
-const extractSections = (text) => {
+export const extractSections = (text) => {
   const sections = {};
   const positions = {};
   const sectionKeywords = [
@@ -42,7 +42,7 @@ const extractSections = (text) => {
 };
 
 // Extract personal info from text
-const extractPersonalInfo = (text) => {
+export const extractPersonalInfo = (text) => {
   const info = {};
   
   // Extract email

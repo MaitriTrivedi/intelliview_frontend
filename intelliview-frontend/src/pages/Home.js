@@ -17,15 +17,11 @@ const Home = () => {
 
   // Load saved resume data on component mount
   useEffect(() => {
-    // Check authentication status on component mount
-    const verifyAuth = async () => {
-      // Just check auth status without forcing refresh
-      checkAuthStatus();
-    };
-    
-    verifyAuth();
+    checkAuthStatus();
+  }, [checkAuthStatus]);
 
-    // Check for saved resume details
+  // Check for saved resume details
+  useEffect(() => {
     const savedResumeDetails = localStorage.getItem('resumeDetails');
     if (savedResumeDetails) {
       try {

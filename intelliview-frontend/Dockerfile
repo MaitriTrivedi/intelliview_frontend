@@ -5,6 +5,9 @@ FROM node:18-alpine AS build
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV CI=true
 ENV DISABLE_ESLINT_PLUGIN=true
+ENV NODE_ENV=production
+# Add this to treat warnings as warnings, not errors
+ENV ESLINT_NO_DEV_ERRORS=true
 
 WORKDIR /app
 
@@ -14,9 +17,6 @@ RUN npm install --legacy-peer-deps --no-audit --no-optional
 
 # Copy source files
 COPY . .
-
-# Set environment for build
-ENV NODE_ENV=production
 
 # Build the application with explicit memory allocation
 RUN npm run build
