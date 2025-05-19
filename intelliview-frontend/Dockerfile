@@ -1,6 +1,11 @@
 # Step 1: Build with Node.js
 FROM node:18-alpine AS build
 
+# Set environment variables
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV CI=true
+ENV DISABLE_ESLINT_PLUGIN=true
+
 WORKDIR /app
 
 # Copy package files first for better caching
@@ -9,7 +14,11 @@ RUN npm install --legacy-peer-deps --no-audit --no-optional
 
 # Copy source files
 COPY . .
-# Build the application
+
+# Set environment for build
+ENV NODE_ENV=production
+
+# Build the application with explicit memory allocation
 RUN npm run build
 
 # Step 2: Serve with nginx

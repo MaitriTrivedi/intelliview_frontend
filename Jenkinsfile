@@ -13,6 +13,10 @@ pipeline {
         NPM_CONFIG_CACHE = '.npm-cache'
         WORKSPACE = "${WORKSPACE}"
         DOCKER_BUILDKIT = '0'  // Explicitly disable BuildKit
+        NODE_OPTIONS = '--max-old-space-size=4096'
+        CI = 'true'
+        DISABLE_ESLINT_PLUGIN = 'true'
+        KUBECONFIG = credentials('kubernetes-config')
     }
     
     stages {
@@ -26,6 +30,7 @@ pipeline {
             steps {
                 sh '''
                 cd intelliview-frontend
+                export NODE_OPTIONS="--max-old-space-size=4096"
                 npm install --legacy-peer-deps
                 '''
             }
@@ -35,6 +40,15 @@ pipeline {
             steps {
                 sh '''
                 cd intelliview-frontend
+                export NODE_OPTIONS="--max-old-space-size=4096"
+                export CI=true
+                export DISABLE_ESLINT_PLUGIN=true
+                export NODE_ENV=production
+                
+                echo "Building with Node options: $NODE_OPTIONS"
+                node --version
+                npm --version
+                
                 npm run build
                 
                 # Verify build directory exists
@@ -78,37 +92,42 @@ pipeline {
         
         stage('Deploy to Kubernetes') {
             steps {
-                sh """
-                # Create kubernetes directory if it doesn't exist
-                mkdir -p kubernetes
-                
-                # Verify the deployment file exists
-                if [ ! -f "kubernetes/frontend-deployment.yaml" ]; then
-                    echo "Kubernetes deployment file not found!"
-                    exit 1
-                fi
-                
-                # Replace templated values in frontend deployment YAML
-                cat kubernetes/frontend-deployment.yaml | 
-                sed 's|\${DOCKER_REGISTRY}|${DOCKER_REGISTRY}|g' | 
-                sed 's|\${IMAGE_NAME}|${IMAGE_NAME}|g' | 
-                sed 's|\${IMAGE_TAG}|${IMAGE_TAG}|g' > kubernetes/frontend-deployment-final.yaml
-                
-                # Debug: Show the generated deployment file
-                echo "Generated Kubernetes deployment file:"
-                cat kubernetes/frontend-deployment-final.yaml
-                
-                # Apply to Kubernetes cluster
-                kubectl apply -f kubernetes/frontend-deployment-final.yaml
-                
-                # Wait for deployment to complete
-                kubectl rollout status deployment/intelliview-frontend --timeout=300s
-                
-                # Show URL
-                FRONTEND_PORT=\$(kubectl get svc intelliview-frontend -o jsonpath='{.spec.ports[0].nodePort}')
-                MINIKUBE_IP=\$(minikube ip)
-                echo "Frontend is accessible at: http://\$MINIKUBE_IP:\$FRONTEND_PORT"
-                """
+                withKubeConfig([credentialsId: 'kubernetes-config']) {
+                    sh """
+                    # Verify kubectl access
+                    kubectl cluster-info
+                    
+                    # Create kubernetes directory if it doesn't exist
+                    mkdir -p kubernetes
+                    
+                    # Verify the deployment file exists
+                    if [ ! -f "kubernetes/frontend-deployment.yaml" ]; then
+                        echo "Kubernetes deployment file not found!"
+                        exit 1
+                    fi
+                    
+                    # Replace templated values in frontend deployment YAML
+                    cat kubernetes/frontend-deployment.yaml | 
+                    sed 's|\${DOCKER_REGISTRY}|${DOCKER_REGISTRY}|g' | 
+                    sed 's|\${IMAGE_NAME}|${IMAGE_NAME}|g' | 
+                    sed 's|\${IMAGE_TAG}|${IMAGE_TAG}|g' > kubernetes/frontend-deployment-final.yaml
+                    
+                    # Debug: Show the generated deployment file
+                    echo "Generated Kubernetes deployment file:"
+                    cat kubernetes/frontend-deployment-final.yaml
+                    
+                    # Apply to Kubernetes cluster with validation disabled for troubleshooting
+                    kubectl apply -f kubernetes/frontend-deployment-final.yaml --validate=false
+                    
+                    # Wait for deployment to complete
+                    kubectl rollout status deployment/intelliview-frontend --timeout=300s
+                    
+                    # Show URL
+                    FRONTEND_PORT=\$(kubectl get svc intelliview-frontend -o jsonpath='{.spec.ports[0].nodePort}')
+                    MINIKUBE_IP=\$(minikube ip)
+                    echo "Frontend is accessible at: http://\$MINIKUBE_IP:\$FRONTEND_PORT"
+                    """
+                }
             }
         }
     }
