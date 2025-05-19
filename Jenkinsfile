@@ -24,10 +24,17 @@ pipeline {
             steps {
                 dir('intelliview-frontend/intelliview-frontend') {
                     sh '''
-                    # Install all dependencies including dev dependencies
-                    npm install --include=dev
+                    # Configure npm to use a workspace-specific cache
+                    npm config set cache $(pwd)/.npm-cache --global
+                    
+                    # Clean install with legacy peer deps to handle typescript version conflicts
+                    npm install --include=dev --legacy-peer-deps
+                    
                     # Run security audit but don't fail if there are advisories
                     npm audit || true
+                    
+                    # Clean up cache after installation
+                    rm -rf $(pwd)/.npm-cache
                     '''
                 }
             }
