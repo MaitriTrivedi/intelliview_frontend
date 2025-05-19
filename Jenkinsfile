@@ -43,7 +43,7 @@ pipeline {
             }
             steps {
                 script {
-                    dir('intelliview-frontend/intelliview-frontend') {
+                    dir('intelliview-frontend') {
                         sh '''#!/bin/bash -xe
                             echo "Node version: $(node --version)"
                             echo "NPM version: $(npm --version)"
@@ -107,14 +107,22 @@ pipeline {
             }
             steps {
                 script {
-                    dir('intelliview-frontend/intelliview-frontend') {
+                    dir('intelliview-frontend') {
                         sh '''#!/bin/bash -xe
+                            # Ensure we're in the right directory
+                            pwd
+                            ls -la
+                            
+                            # Set build environment variables
                             export CI=true
                             export DISABLE_ESLINT_PLUGIN=true
+                            
+                            # Run build
                             npm run build
                             
                             # Verify build output exists
-                            ls -la build/
+                            ls -la
+                            ls -la build/ || echo "Build directory not found!"
                         '''
                     }
                 }
@@ -129,9 +137,6 @@ pipeline {
                             sh '''#!/bin/bash -xe
                                 echo "Docker version:"
                                 docker version
-                                
-                                echo "Pulling latest image for caching..."
-                                docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest || true
                                 
                                 echo "Building Docker image..."
                                 docker build \

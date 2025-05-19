@@ -1,15 +1,15 @@
-FROM node:18-alpine
+FROM node:18-alpine as build
 
 WORKDIR /app
 
 # Copy package files
-COPY intelliview-frontend/package*.json ./
+COPY package*.json ./
 
 # Install dependencies with legacy peer deps
 RUN npm install --legacy-peer-deps --no-audit
 
 # Copy project files
-COPY intelliview-frontend/ ./
+COPY . ./
 
 # Build the app
 RUN npm run build
@@ -18,7 +18,7 @@ RUN npm run build
 FROM nginx:alpine
 
 # Copy the build output to nginx
-COPY --from=0 /app/build /usr/share/nginx/html
+COPY --from=build /app/build /usr/share/nginx/html
 
 # Copy nginx configuration if needed
 # COPY nginx.conf /etc/nginx/conf.d/default.conf
