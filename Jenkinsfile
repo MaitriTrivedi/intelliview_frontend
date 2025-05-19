@@ -35,7 +35,7 @@ pipeline {
             }
         }
         
-        stage('Build React App') {
+        stage('Build Django App') {
             steps {
                 sh '''
                 cd intelliview-frontend
