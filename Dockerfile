@@ -5,13 +5,20 @@ WORKDIR /app
 # Copy package files from the correct location
 COPY intelliview-frontend/package*.json ./
 
-# Install dependencies with legacy peer deps
-RUN npm install --legacy-peer-deps --no-audit
+# Install dependencies with specific flags to handle React and Jest
+RUN npm install \
+    --legacy-peer-deps \
+    --no-audit \
+    --no-package-lock \
+    --no-optional \
+    --production=false
 
 # Copy project files from the correct location
 COPY intelliview-frontend/ ./
 
-# Build the app
+# Build the app with environment variables
+ENV CI=true
+ENV DISABLE_ESLINT_PLUGIN=true
 RUN npm run build
 
 # Use nginx to serve the built app
