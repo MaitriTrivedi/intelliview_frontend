@@ -45,13 +45,23 @@ pipeline {
                 script {
                     dir('intelliview-frontend/intelliview-frontend') {
                         sh '''#!/bin/bash -xe
-                            if [ -f "package-lock.json" ]; then
-                                echo "Using npm ci for clean install..."
-                                npm ci --prefer-offline --no-audit
-                            else
-                                echo "No package-lock.json found, using npm install..."
-                                npm install --prefer-offline --no-audit --legacy-peer-deps
-                            fi
+                            echo "Node version: $(node --version)"
+                            echo "NPM version: $(npm --version)"
+                            
+                            # Create .npmrc to ensure we can write to the cache
+                            echo "cache=./.npm-cache" > .npmrc
+                            
+                            # Ensure we have a clean slate
+                            rm -rf node_modules package-lock.json .npm-cache || true
+                            
+                            # Install dependencies with legacy peer deps to handle React requirements
+                            npm install --no-audit --legacy-peer-deps
+                            
+                            # Generate a clean package-lock.json
+                            npm install --package-lock-only --legacy-peer-deps
+                            
+                            # List installed packages for debugging
+                            npm list --depth=0
                         '''
                     }
                 }
