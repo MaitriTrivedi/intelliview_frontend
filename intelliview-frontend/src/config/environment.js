@@ -3,7 +3,7 @@
 
 // Base URL configurations
 export const MAIN_API_BASE_URL = 'http://127.0.0.1:8000'; // Main backend API URL
-export const LLM_API_BASE_URL = 'https://5b98-49-207-59-237.ngrok-free.app';  // LLM service API URL (remove trailing slash)
+export const LLM_API_BASE_URL = 'https://fd4a-119-161-98-68.ngrok-free.app/';  // LLM service API URL (remove trailing slash)
 
 // API configuration
 export const getApiBaseUrl = () => {
