@@ -1,8 +1,12 @@
 pipeline {
     agent {
         docker {
-            image 'node:18-slim'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
+            image 'cimg/node:18.17-browsers'
+            args '''
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v /usr/bin/docker:/usr/bin/docker \
+                -v /usr/lib/x86_64-linux-gnu/libltdl.so.7:/usr/lib/x86_64-linux-gnu/libltdl.so.7
+            '''
             reuseNode true
         }
     }
@@ -22,6 +26,18 @@ pipeline {
     }
     
     stages {
+        stage('Setup') {
+            steps {
+                script {
+                    sh '''#!/bin/bash -xe
+                        node --version
+                        npm --version
+                        docker --version || true
+                    '''
+                }
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 checkout scm
@@ -90,13 +106,6 @@ pipeline {
         }
         
         stage('Build and Push Docker Image') {
-            agent {
-                docker {
-                    image 'docker:20.10.16'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                    reuseNode true
-                }
-            }
             steps {
                 script {
                     dir('intelliview-frontend') {
@@ -121,20 +130,17 @@ pipeline {
         }
         
         stage('Deploy to Kubernetes') {
-            agent {
-                docker {
-                    image 'bitnami/kubectl:latest'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                    reuseNode true
-                }
-            }
             steps {
                 script {
                     sh '''#!/bin/bash -xe
-                        kubectl version --client
-                        kubectl get namespace intelliview || kubectl create namespace intelliview
+                        # Install kubectl
+                        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                        chmod +x kubectl
+                        ./kubectl version --client
                         
-                        cat <<EOF | kubectl apply -f -
+                        ./kubectl get namespace intelliview || ./kubectl create namespace intelliview
+                        
+                        cat <<EOF | ./kubectl apply -f -
                         apiVersion: apps/v1
                         kind: Deployment
                         metadata:
@@ -191,7 +197,7 @@ pipeline {
                                   periodSeconds: 10
                         EOF
                         
-                        cat <<EOF | kubectl apply -f -
+                        cat <<EOF | ./kubectl apply -f -
                         apiVersion: v1
                         kind: Service
                         metadata:
@@ -206,7 +212,7 @@ pipeline {
                           type: ClusterIP
                         EOF
                         
-                        cat <<EOF | kubectl apply -f -
+                        cat <<EOF | ./kubectl apply -f -
                         apiVersion: networking.k8s.io/v1
                         kind: Ingress
                         metadata:
@@ -237,7 +243,7 @@ pipeline {
                                           number: 80
                         EOF
                         
-                        kubectl rollout status deployment/intelliview-frontend -n intelliview --timeout=180s
+                        ./kubectl rollout status deployment/intelliview-frontend -n intelliview --timeout=180s
                     '''
                 }
             }
