@@ -48,20 +48,11 @@ pipeline {
                             echo "Node version: $(node --version)"
                             echo "NPM version: $(npm --version)"
                             
-                            # Create .npmrc to ensure we can write to the cache
-                            echo "cache=./.npm-cache" > .npmrc
-                            
-                            # Ensure we have a clean slate
-                            rm -rf node_modules package-lock.json .npm-cache || true
-                            
-                            # Install dependencies with legacy peer deps to handle React requirements
-                            npm install --no-audit --legacy-peer-deps
-                            
-                            # Generate a clean package-lock.json
-                            npm install --package-lock-only --legacy-peer-deps
+                            # Clean install with legacy peer deps
+                            npm install --legacy-peer-deps --no-audit
                             
                             # List installed packages for debugging
-                            npm list --depth=0
+                            npm list --depth=0 || true
                         '''
                     }
                 }
@@ -121,6 +112,9 @@ pipeline {
                             export CI=true
                             export DISABLE_ESLINT_PLUGIN=true
                             npm run build
+                            
+                            # Verify build output exists
+                            ls -la build/
                         '''
                     }
                 }

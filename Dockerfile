@@ -5,18 +5,24 @@ WORKDIR /app
 # Copy package files
 COPY intelliview-frontend/package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies with legacy peer deps
+RUN npm install --legacy-peer-deps --no-audit
 
 # Copy project files
 COPY intelliview-frontend/ ./
 
-# Set environment variables
-ENV REACT_APP_API_URL=http://localhost:8000/api
-ENV REACT_APP_LLM_SERVICE_URL=http://localhost:8000/api/llm
+# Build the app
+RUN npm run build
 
-# Expose port
-EXPOSE 3000
+# Use nginx to serve the built app
+FROM nginx:alpine
 
-# Start the React app
-CMD ["npm", "start"] 
+# Copy the build output to nginx
+COPY --from=0 /app/build /usr/share/nginx/html
+
+# Copy nginx configuration if needed
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"] 
