@@ -5,7 +5,7 @@ import { MAIN_API_BASE_URL, LLM_API_BASE_URL, getLlmApiBaseUrl } from '../config
 const LLM_API_URL = getLlmApiBaseUrl();
 
 // Network utility functions
-const checkMainServerConnection = async () => {
+export const checkMainServerConnection = async () => {
   try {
     const response = await fetch('/api/health/');
     return response.ok;
@@ -15,7 +15,7 @@ const checkMainServerConnection = async () => {
   }
 };
 
-const checkLlmServiceConnection = async () => {
+export const checkLlmServiceConnection = async () => {
   try {
     const llmUrl = getLlmApiBaseUrl();
     const response = await fetch(`${llmUrl}/health/`);
@@ -26,7 +26,7 @@ const checkLlmServiceConnection = async () => {
   }
 };
 
-const logNetworkInfo = async () => {
+export const logNetworkInfo = async () => {
   const mainServerReachable = await checkMainServerConnection();
   const llmServiceReachable = await checkLlmServiceConnection();
 
@@ -41,16 +41,11 @@ const logNetworkInfo = async () => {
   };
 };
 
-// Export all functions
-export {
+// Export default object
+const networkUtils = {
   checkMainServerConnection,
   checkLlmServiceConnection,
   logNetworkInfo
 };
 
-// Export default object
-export default {
-  checkMainServerConnection,
-  checkLlmServiceConnection,
-  logNetworkInfo
-}; 
+export default networkUtils; 
