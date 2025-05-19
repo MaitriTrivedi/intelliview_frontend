@@ -1,11 +1,11 @@
 # Step 1: Build with Node.js
-FROM node:18 AS build
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
 # Copy package files first for better caching
 COPY package*.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps --no-audit --no-optional
 
 # Copy source files
 COPY . .
